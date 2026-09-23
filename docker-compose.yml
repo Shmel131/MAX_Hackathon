@@ -1,0 +1,48 @@
+version: "3.9"
+
+# One command to run every local component of AskVUZ:
+#   docker compose up --build
+#
+# backend  -> REST API + Socket.IO + MAX webhook, SQLite file persisted in a volume
+# frontend -> expert/admin panel + browser Chat Simulator, served by nginx
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-secret-change-me}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@askvuz.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+      MOCK_MAX: ${MOCK_MAX:-true}
+      MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
+      MAX_API_BASE_URL: ${MAX_API_BASE_URL:-https://botapi.max.ru}
+      MAX_WEBHOOK_SECRET: ${MAX_WEBHOOK_SECRET:-}
+      FAST_RESPONSE_THRESHOLD_SECONDS: ${FAST_RESPONSE_THRESHOLD_SECONDS:-300}
+      SEED_ON_START: ${SEED_ON_START:-true}
+      DATABASE_FILE: /app/data/askvuz.db
+    volumes:
+      - askvuz-db:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ${PUBLIC_API_BASE:-http://localhost:4000}
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  askvuz-db:

@@ -1,0 +1,361 @@
+openapi: 3.0.3
+info:
+  title: AskVUZ API
+  description: >
+    REST API for AskVUZ — a real-time Q&A chat-bot service for MAX that
+    connects university organizations with students/applicants and routes
+    questions to verified answerers by role and reputation.
+  version: "1.0.0"
+servers:
+  - url: http://localhost:4000
+    description: Local / docker-compose
+paths:
+  /health:
+    get:
+      summary: Liveness/health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  mockMax:
+                    type: boolean
+
+  /api/auth/login:
+    post:
+      summary: Log in an expert / university admin / platform admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 4 }
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { $ref: "#/components/schemas/AuthUser" }
+        "401":
+          description: Invalid credentials
+
+  /api/auth/me:
+    get:
+      summary: Current authenticated user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+
+  /api/universities:
+    get:
+      summary: List active universities (organizations) connected to the service
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/University" }
+    post:
+      summary: Onboard a new university (platform admin only)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, name]
+              properties:
+                slug: { type: string }
+                name: { type: string }
+                city: { type: string }
+                description: { type: string }
+      responses:
+        "201":
+          description: Created
+        "403":
+          description: Forbidden
+
+  /api/universities/{id}:
+    get:
+      summary: Get a university with its categories
+      parameters:
+        - $ref: "#/components/parameters/UniversityId"
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not found
+
+  /api/universities/{universityId}/categories:
+    get:
+      summary: List question categories for a university
+      parameters:
+        - $ref: "#/components/parameters/UniversityIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Category" }
+    post:
+      summary: Create a category (university admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UniversityIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+
+  /api/universities/{universityId}/leaderboard:
+    get:
+      summary: Reputation leaderboard for a university
+      parameters:
+        - $ref: "#/components/parameters/UniversityIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/LeaderboardEntry" }
+
+  /api/questions/queue:
+    get:
+      summary: Live queue of open questions the logged-in expert is eligible to answer
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Question" }
+
+  /api/questions/{id}:
+    get:
+      summary: Get a question with its answers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/QuestionId"
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not found
+
+  /api/questions/{id}/claim:
+    post:
+      summary: Claim an open question (only eligible role can claim)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/QuestionId"
+      responses:
+        "200":
+          description: Claimed
+        "403":
+          description: Not eligible
+        "409":
+          description: Already claimed
+
+  /api/questions/{id}/answers:
+    post:
+      summary: Submit an answer to a question
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/QuestionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+      responses:
+        "201":
+          description: Answer created
+
+  /api/answers/{id}/rate:
+    post:
+      summary: Asker rates an answer — drives the reputation system
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating: { type: string, enum: [HELPFUL, NOT_HELPFUL, RESOLVED] }
+      responses:
+        "200":
+          description: OK
+        "409":
+          description: Already rated
+
+  /api/admin/universities/{universityId}/experts:
+    get:
+      summary: List a university's answerers (university admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UniversityIdPath"
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: Invite a new verified answerer (university admin)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/UniversityIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, email]
+              properties:
+                displayName: { type: string }
+                email: { type: string, format: email }
+                isStaff: { type: boolean }
+                startingRole: { $ref: "#/components/schemas/Role" }
+      responses:
+        "201":
+          description: Created
+
+  /webhook/max:
+    post:
+      summary: MAX Bot API webhook receiver (see README for registration)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: MAX update envelope (message / callback / bot_started)
+      responses:
+        "200":
+          description: Always acknowledged immediately; processed asynchronously
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    UniversityId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    UniversityIdPath:
+      name: universityId
+      in: path
+      required: true
+      schema: { type: string }
+    QuestionId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    Role:
+      type: string
+      enum: [TRAINEE, HELPER, KNOWER, EXPERT, MENTOR, PRO]
+    AuthUser:
+      type: object
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        reputationPoints: { type: integer }
+        isAnswerer: { type: boolean }
+        isUniversityAdmin: { type: boolean }
+        isPlatformAdmin: { type: boolean }
+        isStaff: { type: boolean }
+        universityId: { type: string, nullable: true }
+    University:
+      type: object
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        city: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+    CategoryInput:
+      type: object
+      required: [code, title]
+      properties:
+        code: { type: string }
+        title: { type: string }
+        description: { type: string }
+        minRole: { $ref: "#/components/schemas/Role" }
+        isSensitive: { type: boolean }
+        sortOrder: { type: integer }
+    Category:
+      allOf:
+        - $ref: "#/components/schemas/CategoryInput"
+        - type: object
+          properties:
+            id: { type: string }
+            universityId: { type: string }
+    Question:
+      type: object
+      properties:
+        id: { type: string }
+        universityId: { type: string }
+        categoryId: { type: string }
+        text: { type: string }
+        status: { type: string, enum: [PENDING, ROUTED, ANSWERED, ESCALATED, CLOSED] }
+        isSensitive: { type: boolean }
+        askerName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    LeaderboardEntry:
+      type: object
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        roleLabel: { type: string }
+        reputationPoints: { type: integer }
+        isOnline: { type: boolean }
+        answersCount: { type: integer }

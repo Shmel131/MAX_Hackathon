@@ -1,0 +1,163 @@
+# DATA-API.yaml — техническая карточка для автоматической проверки решения,
+# согласно требованиям раздела "Формат сдачи" брифа хакатона.
+schemaVersion: "1.0"
+solution:
+  name: "AskVUZ"
+  teamId: "REPLACE_WITH_TEAM_ID"
+baseUrl: "http://localhost:4000"
+
+checks:
+  - name: "Проверка доступности сервиса"
+    method: GET
+    path: /health
+    role: anonymous
+    expectedStatusCodes: [200]
+    expectedResponse:
+      contentType: application/json
+      schema:
+        ok: boolean
+        mockMax: boolean
+
+  - name: "Список подключённых вузов"
+    method: GET
+    path: /api/universities
+    role: anonymous
+    expectedStatusCodes: [200]
+    expectedResponse:
+      contentType: application/json
+      schema: "array<University>"
+
+  - name: "Категории вопросов выбранного вуза"
+    method: GET
+    path: /api/universities/{universityId}/categories
+    role: anonymous
+    parameters:
+      path:
+        - name: universityId
+          required: true
+          type: string
+    expectedStatusCodes: [200]
+    expectedResponse:
+      contentType: application/json
+      schema: "array<Category>"
+
+  - name: "Старт диалога с ботом (эмуляция основного сценария МАХ)"
+    method: POST
+    path: /api/simulator/start
+    role: anonymous
+    body:
+      chatId: string
+      name: string
+    expectedStatusCodes: [200]
+    expectedResponse:
+      contentType: application/json
+      schema:
+        text: string
+        buttons: "array<{id: string, label: string}>"
+
+  - name: "Отправка вопроса пользователем"
+    method: POST
+    path: /api/simulator/message
+    role: anonymous
+    body:
+      chatId: string
+      text: string
+      name: string
+    expectedStatusCodes: [200]
+    expectedResponse:
+      contentType: application/json
+      schema:
+        text: string
+        questionId: string
+
+  - name: "Авторизация эксперта/администратора"
+    method: POST
+    path: /api/auth/login
+    role: anonymous
+    body:
+      email: string
+      password: string
+    expectedStatusCodes: [200, 401]
+    expectedResponse:
+      contentType: application/json
+      schema:
+        token: string
+        user: object
+
+  - name: "Очередь вопросов для эксперта"
+    method: GET
+    path: /api/questions/queue
+    role: expert
+    auth: bearer
+    expectedStatusCodes: [200, 403]
+    expectedResponse:
+      contentType: application/json
+      schema: "array<Question>"
+
+  - name: "Эксперт берёт вопрос в работу"
+    method: POST
+    path: /api/questions/{id}/claim
+    role: expert
+    auth: bearer
+    parameters:
+      path:
+        - name: id
+          required: true
+          type: string
+    expectedStatusCodes: [200, 403, 404, 409]
+    expectedResponse:
+      contentType: application/json
+      schema: "Question"
+
+  - name: "Эксперт отвечает на вопрос"
+    method: POST
+    path: /api/questions/{id}/answers
+    role: expert
+    auth: bearer
+    parameters:
+      path:
+        - name: id
+          required: true
+          type: string
+    body:
+      text: string
+    expectedStatusCodes: [201, 403, 404, 409]
+    expectedResponse:
+      contentType: application/json
+      schema: "Answer"
+
+  - name: "Оценка ответа и начисление репутации"
+    method: POST
+    path: /api/answers/{id}/rate
+    role: asker
+    parameters:
+      path:
+        - name: id
+          required: true
+          type: string
+    body:
+      rating: "HELPFUL | NOT_HELPFUL | RESOLVED"
+    expectedStatusCodes: [200, 404, 409]
+    expectedResponse:
+      contentType: application/json
+      schema:
+        ok: boolean
+
+  - name: "Рейтинг экспертов вуза"
+    method: GET
+    path: /api/universities/{universityId}/leaderboard
+    role: anonymous
+    parameters:
+      path:
+        - name: universityId
+          required: true
+          type: string
+    expectedStatusCodes: [200]
+    expectedResponse:
+      contentType: application/json
+      schema: "array<LeaderboardEntry>"
+
+notes: >
+  Полная спецификация со схемами запросов/ответов — в openapi.yaml (OpenAPI 3.0)
+  в корне репозитория. Тестовые учётные записи и пароли для роли "expert" —
+  в README.md, раздел "Тестовые учётные записи".
