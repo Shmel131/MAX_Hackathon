@@ -1,23 +1,46 @@
 import { useEffect, useState } from "react";
-import { AuthUser, LeaderboardEntry } from "../types";
+import { University, LeaderboardEntry } from "../types";
 import { api } from "../api";
 import { RoleBadge } from "../components/RoleBadge";
 
-export function Leaderboard({ user }: { user: AuthUser }) {
+/** Public — visible to students as well as staff (see requirement: рейтинг не
+ * только у отвечающих, но и у студентов). No login required to view it. */
+export function Leaderboard() {
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [universityId, setUniversityId] = useState<string>("");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user.universityId) return;
     api
-      .get<LeaderboardEntry[]>(`/api/universities/${user.universityId}/leaderboard`)
+      .get<University[]>("/api/universities")
+      .then((list) => {
+        setUniversities(list);
+        if (list.length > 0) setUniversityId(list[0].id);
+      })
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  useEffect(() => {
+    if (!universityId) return;
+    api
+      .get<LeaderboardEntry[]>(`/api/universities/${universityId}/leaderboard`)
       .then(setEntries)
       .catch((e) => setError((e as Error).message));
-  }, [user.universityId]);
+  }, [universityId]);
 
   return (
     <div className="panel">
-      <h2>Рейтинг экспертов вуза</h2>
+      <div className="panel__header">
+        <h2>Рейтинг специалистов по ауре</h2>
+        <select value={universityId} onChange={(e) => setUniversityId(e.target.value)}>
+          {universities.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+      </div>
       {error && <p className="error-text">{error}</p>}
       <table className="table">
         <thead>
@@ -25,7 +48,7 @@ export function Leaderboard({ user }: { user: AuthUser }) {
             <th>#</th>
             <th>Имя</th>
             <th>Роль</th>
-            <th>Баллы</th>
+            <th>Аура</th>
             <th>Ответов</th>
             <th>Онлайн</th>
           </tr>
@@ -38,7 +61,7 @@ export function Leaderboard({ user }: { user: AuthUser }) {
               <td>
                 <RoleBadge role={e.role} />
               </td>
-              <td>{e.reputationPoints}</td>
+              <td>{e.aura}</td>
               <td>{e.answersCount}</td>
               <td>{e.isOnline ? "🟢" : "⚪️"}</td>
             </tr>

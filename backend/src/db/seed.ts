@@ -8,14 +8,14 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin12345";
 
 const CATEGORY_TEMPLATE: Array<{ code: string; title: string; minRole: Role; isSensitive?: boolean; sortOrder: number }> = [
   { code: "ADMISSION", title: "Поступление", minRole: "HELPER", sortOrder: 1 },
-  { code: "STUDY", title: "Учебный процесс", minRole: "TRAINEE", sortOrder: 2 },
+  { code: "STUDY", title: "Учебный процесс", minRole: "HELPER", sortOrder: 2 },
   { code: "DOCS", title: "Заказ справок и документов", minRole: "KNOWER", sortOrder: 3 },
   { code: "SCHOLARSHIP", title: "Стипендии и матпомощь", minRole: "KNOWER", sortOrder: 4 },
-  { code: "DORM", title: "Общежитие и быт", minRole: "TRAINEE", sortOrder: 5 },
+  { code: "DORM", title: "Общежитие и быт", minRole: "HELPER", sortOrder: 5 },
   { code: "SCIENCE", title: "Наука и допобразование", minRole: "HELPER", sortOrder: 6 },
-  { code: "CAREER", title: "Карьера и стажировки", minRole: "EXPERT", sortOrder: 7 },
-  { code: "CAMPUS_LIFE", title: "Студенческая жизнь", minRole: "TRAINEE", sortOrder: 8 },
-  { code: "SUPPORT", title: "Психологическая поддержка и безопасность", minRole: "MENTOR", isSensitive: true, sortOrder: 9 },
+  { code: "CAREER", title: "Карьера и стажировки", minRole: "KNOWER", sortOrder: 7 },
+  { code: "CAMPUS_LIFE", title: "Студенческая жизнь", minRole: "HELPER", sortOrder: 8 },
+  { code: "SUPPORT", title: "Психологическая поддержка и безопасность", minRole: "PRO", isSensitive: true, sortOrder: 9 },
 ];
 
 async function upsertExpert(params: {
@@ -23,7 +23,7 @@ async function upsertExpert(params: {
   displayName: string;
   universityId: string;
   role: Role;
-  reputationPoints: number;
+  aura: number;
   isStaff?: boolean;
   isUniversityAdmin?: boolean;
 }) {
@@ -39,7 +39,7 @@ async function upsertExpert(params: {
     isStaff: params.isStaff ? 1 : 0,
     isUniversityAdmin: params.isUniversityAdmin ? 1 : 0,
     role: params.role,
-    reputationPoints: params.reputationPoints,
+    aura: params.aura,
   });
 }
 
@@ -87,28 +87,39 @@ async function main() {
     displayName: "Администратор ИТМО",
     universityId: uni1.id,
     role: "PRO",
-    reputationPoints: 0,
+    aura: 0,
     isStaff: true,
     isUniversityAdmin: true,
   });
 
-  // --- experts across the reputation ladder (ИТМО) ---------------------
-  await upsertExpert({ email: "trainee@itmo.demo", displayName: "Аня (стажёр)", universityId: uni1.id, role: "TRAINEE", reputationPoints: 10 });
-  await upsertExpert({ email: "helper@itmo.demo", displayName: "Борис (помощник)", universityId: uni1.id, role: "HELPER", reputationPoints: 80 });
-  await upsertExpert({ email: "knower@itmo.demo", displayName: "Вера (знаток)", universityId: uni1.id, role: "KNOWER", reputationPoints: 200 });
-  await upsertExpert({ email: "expert@itmo.demo", displayName: "Глеб (эксперт), деканат", universityId: uni1.id, role: "EXPERT", reputationPoints: 420, isStaff: true });
-  await upsertExpert({ email: "mentor@itmo.demo", displayName: "Дарья (наставник), психолог", universityId: uni1.id, role: "MENTOR", reputationPoints: 900, isStaff: true });
-  await upsertExpert({ email: "pro@itmo.demo", displayName: "Егор (профи), зам. декана", universityId: uni1.id, role: "PRO", reputationPoints: 1800, isStaff: true });
+  // --- experts across the three roles (ИТМО) ---------------------
+  await upsertExpert({ email: "helper@itmo.demo", displayName: "Борис (помощник)", universityId: uni1.id, role: "HELPER", aura: 40 });
+  await upsertExpert({ email: "knower@itmo.demo", displayName: "Вера (знаток)", universityId: uni1.id, role: "KNOWER", aura: 220 });
+  await upsertExpert({
+    email: "pro@itmo.demo",
+    displayName: "Егор (профи), зам. декана",
+    universityId: uni1.id,
+    role: "PRO",
+    aura: 900,
+    isStaff: true,
+  });
 
-  await upsertExpert({ email: "helper@susu.demo", displayName: "Ирина (помощник)", universityId: uni2.id, role: "HELPER", reputationPoints: 60 });
-  await upsertExpert({ email: "pro@susu.demo", displayName: "Максим (профи), приёмная комиссия", universityId: uni2.id, role: "PRO", reputationPoints: 1600, isStaff: true });
+  await upsertExpert({ email: "helper@susu.demo", displayName: "Ирина (помощник)", universityId: uni2.id, role: "HELPER", aura: 60 });
+  await upsertExpert({
+    email: "pro@susu.demo",
+    displayName: "Максим (профи), приёмная комиссия",
+    universityId: uni2.id,
+    role: "PRO",
+    aura: 800,
+    isStaff: true,
+  });
 
   // eslint-disable-next-line no-console
   console.log("Seed complete.");
   // eslint-disable-next-line no-console
-  console.log(`Platform admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+  console.log(`Платформенный админ: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
   // eslint-disable-next-line no-console
-  console.log("Demo expert/admin accounts use password: demo12345 (see README for full list).");
+  console.log("Демо-эксперты/админ вуза используют пароль: demo12345 (полный список — в README).");
 }
 
 main().catch((e) => {

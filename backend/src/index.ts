@@ -10,10 +10,9 @@ import { authRouter } from "./routes/auth";
 import { universitiesRouter } from "./routes/universities";
 import { categoriesRouter } from "./routes/categories";
 import { questionsRouter } from "./routes/questions";
-import { answersRouter } from "./routes/answers";
 import { expertsRouter } from "./routes/experts";
 import { adminRouter } from "./routes/admin";
-import { simulatorRouter } from "./routes/simulator";
+import { studentRouter } from "./routes/student";
 import { maxWebhookRouter } from "./max/webhook";
 
 const app = express();
@@ -26,10 +25,9 @@ app.use("/api", authRouter);
 app.use("/api", universitiesRouter);
 app.use("/api", categoriesRouter);
 app.use("/api", questionsRouter);
-app.use("/api", answersRouter);
 app.use("/api", expertsRouter);
 app.use("/api", adminRouter);
-app.use("/api", simulatorRouter);
+app.use("/api", studentRouter);
 
 // MAX webhook is mounted at the root (not under /api) since the platform's
 // webhook URL registration is independent of our own REST namespace.

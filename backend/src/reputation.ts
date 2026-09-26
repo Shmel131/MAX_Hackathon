@@ -1,9 +1,14 @@
 import { Role } from "./db/models";
-import { users, reputationEvents } from "./db/store";
+import { users, auraEvents } from "./db/store";
 import { ROLE_LADDER, ROLE_THRESHOLDS } from "./types";
 import { logger } from "./logger";
 
-export const POINTS = {
+/**
+ * "Аура" — the renamed reputation score (see project changelog / README).
+ * Everything below still deals in the same underlying integer; only the
+ * user-facing name changed, so the field on UserProfile is `aura`.
+ */
+export const AURA = {
   ANSWER_HELPFUL: 10,
   ANSWER_RESOLVED: 25,
   FAST_RESPONSE_BONUS: 5,
@@ -12,34 +17,34 @@ export const POINTS = {
   COMPLAINT: -10,
 };
 
-/** Highest role a user qualifies for purely by accumulated points. */
-export function roleForPoints(points: number): Role {
-  let resolved: Role = "TRAINEE";
+/** Highest role a user qualifies for purely by accumulated aura. */
+export function roleForAura(aura: number): Role {
+  let resolved: Role = "HELPER";
   for (const role of ROLE_LADDER) {
-    if (points >= ROLE_THRESHOLDS[role]) {
+    if (aura >= ROLE_THRESHOLDS[role]) {
       resolved = role;
     }
   }
   return resolved;
 }
 
-export async function awardPoints(userId: string, points: number, reason: string) {
+export async function awardAura(userId: string, points: number, reason: string) {
   const user = users.findById(userId);
   if (!user) return undefined;
 
-  const newPoints = Math.max(0, user.reputationPoints + points);
-  const computedRole = roleForPoints(newPoints);
+  const newAura = Math.max(0, user.aura + points);
+  const computedRole = roleForAura(newAura);
 
   // Staff members that were manually promoted by their university admin never
-  // drop below their current role purely from automatic point recalculation —
-  // only an explicit admin action can demote them.
+  // drop below their current role purely from automatic recalculation — only
+  // an explicit admin action can demote them.
   const staffFloorRank = ROLE_LADDER.indexOf(user.role);
   const computedRank = ROLE_LADDER.indexOf(computedRole);
   const finalRole = user.isStaff === 1 && staffFloorRank > computedRank ? user.role : computedRole;
 
-  const updated = users.update(userId, { reputationPoints: newPoints, role: finalRole });
-  reputationEvents.create({ userId, points, reason });
+  const updated = users.update(userId, { aura: newAura, role: finalRole });
+  auraEvents.create({ userId, points, reason });
 
-  logger.info("reputation.awarded", { userId, points, reason, newPoints, finalRole });
+  logger.info("aura.awarded", { userId, points, reason, newAura, finalRole });
   return updated;
 }

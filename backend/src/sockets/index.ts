@@ -15,31 +15,33 @@ export function initSockets(httpServer: HttpServer) {
 
   io.on("connection", (socket: Socket) => {
     const token = socket.handshake.auth?.token as string | undefined;
-    const simulatorChatId = socket.handshake.auth?.simulatorChatId as string | undefined;
+    if (!token) {
+      // Unauthenticated sockets are allowed to connect but join no rooms —
+      // they simply won't receive any push events.
+      return;
+    }
 
-    if (token) {
-      try {
-        const payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
-        socket.data.userId = payload.userId;
-        if (payload.universityId) {
-          socket.join(`university:${payload.universityId}`);
-        }
-        users.setOnline(payload.userId, true);
-        logger.info("socket.expert_connected", { userId: payload.userId });
+    let payload: JwtPayload;
+    try {
+      payload = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    } catch (err) {
+      logger.warn("socket.auth_failed", { error: String(err) });
+      socket.disconnect(true);
+      return;
+    }
 
-        socket.on("disconnect", () => {
-          users.setOnline(payload.userId, false);
-          logger.info("socket.expert_disconnected", { userId: payload.userId });
-        });
-      } catch (err) {
-        logger.warn("socket.auth_failed", { error: String(err) });
-        socket.disconnect(true);
-        return;
-      }
-    } else if (simulatorChatId) {
-      // Anonymous asker session in the browser Chat Simulator — joins its own
-      // private room so answers can be pushed back to exactly this browser tab.
-      socket.join(`chat:${simulatorChatId}`);
+    if (payload.kind === "staff" && payload.userId) {
+      const userId = payload.userId;
+      if (payload.universityId) socket.join(`university:${payload.universityId}`);
+      users.setOnline(userId, true);
+      logger.info("socket.staff_connected", { userId });
+      socket.on("disconnect", () => {
+        users.setOnline(userId, false);
+        logger.info("socket.staff_disconnected", { userId });
+      });
+    } else if (payload.kind === "student" && payload.studentId) {
+      socket.join(`student:${payload.studentId}`);
+      logger.info("socket.student_connected", { studentId: payload.studentId });
     }
   });
 
@@ -51,6 +53,10 @@ export function getIO(): Server {
   return io;
 }
 
-export function emitAnswerToChat(externalChatId: string, payload: unknown) {
-  getIO().to(`chat:${externalChatId}`).emit("question:answered", payload);
+export function emitToStudent(studentId: string, event: string, payload: unknown) {
+  getIO().to(`student:${studentId}`).emit(event, payload);
+}
+
+export function emitToUniversity(universityId: string, event: string, payload: unknown) {
+  getIO().to(`university:${universityId}`).emit(event, payload);
 }

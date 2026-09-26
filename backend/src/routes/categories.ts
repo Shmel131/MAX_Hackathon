@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Role } from "../db/models";
 import { categories } from "../db/store";
 import { asyncHandler } from "../utils/asyncHandler";
-import { requireAuth, requireUniversityAdmin, AuthedRequest } from "../middleware/auth";
+import { requireStaff, requireUniversityAdmin, AuthedRequest } from "../middleware/auth";
 
 export const categoriesRouter = Router();
 
@@ -14,19 +14,19 @@ categoriesRouter.get(
   })
 );
 
-const roleEnum = z.enum(["TRAINEE", "HELPER", "KNOWER", "EXPERT", "MENTOR", "PRO"]);
+const roleEnum = z.enum(["HELPER", "KNOWER", "PRO"]);
 const createSchema = z.object({
   code: z.string().min(2),
   title: z.string().min(2),
   description: z.string().optional(),
-  minRole: roleEnum.default("TRAINEE"),
+  minRole: roleEnum.default("HELPER"),
   isSensitive: z.boolean().default(false),
   sortOrder: z.number().int().default(0),
 });
 
 categoriesRouter.post(
   "/universities/:universityId/categories",
-  requireAuth,
+  requireStaff,
   requireUniversityAdmin,
   asyncHandler(async (req: AuthedRequest, res) => {
     const universityId = req.params.universityId;
@@ -41,7 +41,7 @@ categoriesRouter.post(
 
 categoriesRouter.patch(
   "/categories/:id",
-  requireAuth,
+  requireStaff,
   requireUniversityAdmin,
   asyncHandler(async (req: AuthedRequest, res) => {
     const category = categories.findById(req.params.id);
@@ -61,7 +61,7 @@ categoriesRouter.patch(
 
 categoriesRouter.delete(
   "/categories/:id",
-  requireAuth,
+  requireStaff,
   requireUniversityAdmin,
   asyncHandler(async (req: AuthedRequest, res) => {
     const category = categories.findById(req.params.id);

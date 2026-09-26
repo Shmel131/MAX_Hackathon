@@ -2,6 +2,9 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 
+// Where the SQLite file lives (see README "Где хранятся данные"):
+//  - in Docker: /app/data/askvuz.db, bind-mounted to ./backend/data on the host
+//  - running locally with `npm run dev`: ./backend/data/askvuz.db
 const DB_PATH = process.env.DATABASE_FILE || path.join(__dirname, "..", "..", "data", "askvuz.db");
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -31,7 +34,7 @@ CREATE TABLE IF NOT EXISTS categories (
   code TEXT NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
-  minRole TEXT NOT NULL DEFAULT 'TRAINEE',
+  minRole TEXT NOT NULL DEFAULT 'HELPER',
   isSensitive INTEGER NOT NULL DEFAULT 0,
   sortOrder INTEGER NOT NULL DEFAULT 0,
   createdAt TEXT NOT NULL,
@@ -40,7 +43,6 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE TABLE IF NOT EXISTS user_profiles (
   id TEXT PRIMARY KEY,
-  maxUserId TEXT UNIQUE,
   displayName TEXT NOT NULL,
   email TEXT UNIQUE,
   passwordHash TEXT,
@@ -49,9 +51,16 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   isUniversityAdmin INTEGER NOT NULL DEFAULT 0,
   isPlatformAdmin INTEGER NOT NULL DEFAULT 0,
   isStaff INTEGER NOT NULL DEFAULT 0,
-  role TEXT NOT NULL DEFAULT 'TRAINEE',
-  reputationPoints INTEGER NOT NULL DEFAULT 0,
+  role TEXT NOT NULL DEFAULT 'HELPER',
+  aura INTEGER NOT NULL DEFAULT 0,
   isOnline INTEGER NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS students (
+  id TEXT PRIMARY KEY,
+  displayName TEXT NOT NULL,
+  maxUserId TEXT UNIQUE,
   createdAt TEXT NOT NULL
 );
 
@@ -62,7 +71,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
   step TEXT NOT NULL DEFAULT 'SELECT_UNIVERSITY',
   universityId TEXT REFERENCES universities(id),
   categoryId TEXT REFERENCES categories(id),
-  askerName TEXT,
+  studentId TEXT REFERENCES students(id),
   updatedAt TEXT NOT NULL,
   createdAt TEXT NOT NULL
 );
@@ -71,30 +80,30 @@ CREATE TABLE IF NOT EXISTS questions (
   id TEXT PRIMARY KEY,
   universityId TEXT NOT NULL REFERENCES universities(id),
   categoryId TEXT NOT NULL REFERENCES categories(id),
-  askerId TEXT REFERENCES user_profiles(id),
+  studentId TEXT NOT NULL REFERENCES students(id),
   channel TEXT NOT NULL,
   externalChatId TEXT NOT NULL,
-  askerName TEXT,
   text TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'PENDING',
   isSensitive INTEGER NOT NULL DEFAULT 0,
   assignedToId TEXT REFERENCES user_profiles(id),
+  askerRating TEXT,
   createdAt TEXT NOT NULL,
   routedAt TEXT,
-  answeredAt TEXT
+  answeredAt TEXT,
+  closedAt TEXT
 );
 
-CREATE TABLE IF NOT EXISTS answers (
+CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
   questionId TEXT NOT NULL REFERENCES questions(id),
-  responderId TEXT NOT NULL REFERENCES user_profiles(id),
+  senderType TEXT NOT NULL,
+  senderId TEXT NOT NULL,
   text TEXT NOT NULL,
-  rating TEXT,
-  respondedInSeconds INTEGER,
   createdAt TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS reputation_events (
+CREATE TABLE IF NOT EXISTS aura_events (
   id TEXT PRIMARY KEY,
   userId TEXT NOT NULL REFERENCES user_profiles(id),
   points INTEGER NOT NULL,
@@ -106,5 +115,6 @@ CREATE INDEX IF NOT EXISTS idx_categories_university ON categories(universityId)
 CREATE INDEX IF NOT EXISTS idx_users_university ON user_profiles(universityId);
 CREATE INDEX IF NOT EXISTS idx_questions_university ON questions(universityId);
 CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(status);
-CREATE INDEX IF NOT EXISTS idx_answers_question ON answers(questionId);
+CREATE INDEX IF NOT EXISTS idx_questions_student ON questions(studentId);
+CREATE INDEX IF NOT EXISTS idx_messages_question ON messages(questionId);
 `);

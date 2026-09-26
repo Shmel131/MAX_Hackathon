@@ -7,18 +7,36 @@ export interface AuthedRequest extends Request {
   auth?: JwtPayload;
 }
 
-export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
+function verify(req: AuthedRequest): JwtPayload | null {
   const header = req.header("Authorization");
-  if (!header?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "missing bearer token" });
-  }
+  if (!header?.startsWith("Bearer ")) return null;
   try {
-    const payload = jwt.verify(header.slice(7), config.jwtSecret) as JwtPayload;
-    req.auth = payload;
-    next();
+    return jwt.verify(header.slice(7), config.jwtSecret) as JwtPayload;
   } catch {
-    return res.status(401).json({ error: "invalid or expired token" });
+    return null;
   }
+}
+
+/** Accepts either a staff or a student token and attaches it to req.auth. */
+export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
+  const payload = verify(req);
+  if (!payload) return res.status(401).json({ error: "missing or invalid token" });
+  req.auth = payload;
+  next();
+}
+
+export function requireStaff(req: AuthedRequest, res: Response, next: NextFunction) {
+  const payload = verify(req);
+  if (!payload || payload.kind !== "staff") return res.status(401).json({ error: "staff token required" });
+  req.auth = payload;
+  next();
+}
+
+export function requireStudent(req: AuthedRequest, res: Response, next: NextFunction) {
+  const payload = verify(req);
+  if (!payload || payload.kind !== "student") return res.status(401).json({ error: "student token required" });
+  req.auth = payload;
+  next();
 }
 
 export function requirePlatformAdmin(req: AuthedRequest, res: Response, next: NextFunction) {

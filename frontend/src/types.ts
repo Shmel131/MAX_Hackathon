@@ -1,15 +1,12 @@
-export type Role = "TRAINEE" | "HELPER" | "KNOWER" | "EXPERT" | "MENTOR" | "PRO";
+export type Role = "HELPER" | "KNOWER" | "PRO";
 
 export const ROLE_LABELS_RU: Record<Role, string> = {
-  TRAINEE: "Стажёр",
   HELPER: "Помощник",
   KNOWER: "Знаток",
-  EXPERT: "Эксперт",
-  MENTOR: "Наставник",
   PRO: "Профи",
 };
 
-export const ROLE_ORDER: Role[] = ["TRAINEE", "HELPER", "KNOWER", "EXPERT", "MENTOR", "PRO"];
+export const ROLE_ORDER: Role[] = ["HELPER", "KNOWER", "PRO"];
 
 export interface University {
   id: string;
@@ -31,12 +28,17 @@ export interface Category {
   sortOrder: number;
 }
 
-export interface AuthUser {
+/** Whoever is currently logged in — either a staff/expert/admin account or a student. */
+export type Identity =
+  | ({ kind: "staff" } & StaffUser)
+  | ({ kind: "student" } & { id: string; displayName: string });
+
+export interface StaffUser {
   id: string;
   displayName: string;
   email: string | null;
   role: Role;
-  reputationPoints: number;
+  aura: number;
   isAnswerer: boolean;
   isUniversityAdmin: boolean;
   isPlatformAdmin: boolean;
@@ -44,16 +46,51 @@ export interface AuthUser {
   universityId: string | null;
 }
 
-export interface QuestionItem {
+export type QuestionStatus = "PENDING" | "ROUTED" | "ANSWERED" | "ESCALATED" | "CLOSED";
+
+export const STATUS_LABELS_RU: Record<QuestionStatus, string> = {
+  PENDING: "Ожидает специалиста",
+  ROUTED: "Взят в работу",
+  ANSWERED: "Есть ответ",
+  ESCALATED: "Передан специалисту",
+  CLOSED: "Закрыт",
+};
+
+export interface Message {
+  id: string;
+  questionId: string;
+  senderType: "STUDENT" | "EXPERT";
+  senderId: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface StudentQuestionSummary {
+  id: string;
+  text: string;
+  status: QuestionStatus;
+  isSensitive: boolean;
+  askerRating: "HELPFUL" | "NOT_HELPFUL" | "RESOLVED" | null;
+  createdAt: string;
+  category: { id: string; title: string } | null;
+  university: { id: string; name: string } | null;
+  expert: { displayName: string; role: Role } | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string;
+}
+
+export interface ExpertQuestionItem {
   id: string;
   universityId: string;
   categoryId: string;
   text: string;
-  status: string;
+  status: QuestionStatus;
   isSensitive: 0 | 1;
-  askerName: string | null;
+  assignedToId: string | null;
+  studentName: string;
   createdAt: string;
   category: Category;
+  assignedTo: { id: string; displayName: string } | null;
 }
 
 export interface LeaderboardEntry {
@@ -61,7 +98,7 @@ export interface LeaderboardEntry {
   displayName: string;
   role: Role;
   roleLabel: string;
-  reputationPoints: number;
+  aura: number;
   isOnline: boolean;
   isStaff: boolean;
   answersCount: number;

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, setToken, setStoredUser } from "../api";
-import { AuthUser } from "../types";
+import { api, setToken } from "../api";
+import { Identity, StaffUser } from "../types";
 
-export function Login({ onLoggedIn }: { onLoggedIn: (user: AuthUser) => void }) {
+export function Login({ onLoggedIn }: { onLoggedIn: (identity: Identity) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,10 +15,10 @@ export function Login({ onLoggedIn }: { onLoggedIn: (user: AuthUser) => void }) 
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<{ token: string; user: AuthUser }>("/api/auth/login", { email, password });
+      const res = await api.post<{ token: string; user: StaffUser }>("/api/auth/login", { email, password });
       setToken(res.token);
-      setStoredUser(res.user);
-      onLoggedIn(res.user);
+      const identity: Identity = { kind: "staff", ...res.user };
+      onLoggedIn(identity);
       if (res.user.isPlatformAdmin || res.user.isUniversityAdmin) navigate("/admin");
       else navigate("/expert");
     } catch (e) {
@@ -31,8 +31,8 @@ export function Login({ onLoggedIn }: { onLoggedIn: (user: AuthUser) => void }) 
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <h1>AskVUZ — вход</h1>
-        <p className="muted">Панель для экспертов и администраторов вуза.</p>
+        <h1>AskVUZ — вход для сотрудников</h1>
+        <p className="muted">Панель для экспертов и администраторов вуза. Студенты входят по имени на главной странице.</p>
         <label>
           E-mail
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />

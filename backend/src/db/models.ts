@@ -1,7 +1,8 @@
-export type Role = "TRAINEE" | "HELPER" | "KNOWER" | "EXPERT" | "MENTOR" | "PRO";
+export type Role = "HELPER" | "KNOWER" | "PRO";
 export type QuestionStatus = "PENDING" | "ROUTED" | "ANSWERED" | "ESCALATED" | "CLOSED";
-export type AnswerRating = "HELPFUL" | "NOT_HELPFUL" | "RESOLVED";
+export type AskerRating = "HELPFUL" | "NOT_HELPFUL" | "RESOLVED";
 export type Channel = "MAX" | "SIMULATOR";
+export type SenderType = "STUDENT" | "EXPERT";
 
 export interface University {
   id: string;
@@ -25,9 +26,9 @@ export interface Category {
   createdAt: string;
 }
 
+/** Staff/answerer/admin accounts — log in with e-mail + password. */
 export interface UserProfile {
   id: string;
-  maxUserId: string | null;
   displayName: string;
   email: string | null;
   passwordHash: string | null;
@@ -37,11 +38,25 @@ export interface UserProfile {
   isPlatformAdmin: 0 | 1;
   isStaff: 0 | 1;
   role: Role;
-  reputationPoints: number;
+  aura: number;
   isOnline: 0 | 1;
   createdAt: string;
 }
 
+/**
+ * Student accounts. MVP auth: log in with just a display name (see README) —
+ * a persistent id/JWT is issued and stored in the browser so the same
+ * student keeps their question history across visits. A real MAX chat
+ * identifies the student automatically via maxUserId, no name prompt needed.
+ */
+export interface Student {
+  id: string;
+  displayName: string;
+  maxUserId: string | null;
+  createdAt: string;
+}
+
+/** Ephemeral wizard state for the university→category→question selection flow. */
 export interface ChatSession {
   id: string;
   channel: Channel;
@@ -49,7 +64,7 @@ export interface ChatSession {
   step: string;
   universityId: string | null;
   categoryId: string | null;
-  askerName: string | null;
+  studentId: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -58,30 +73,31 @@ export interface Question {
   id: string;
   universityId: string;
   categoryId: string;
-  askerId: string | null;
+  studentId: string;
   channel: Channel;
   externalChatId: string;
-  askerName: string | null;
   text: string;
   status: QuestionStatus;
   isSensitive: 0 | 1;
   assignedToId: string | null;
+  askerRating: AskerRating | null;
   createdAt: string;
   routedAt: string | null;
   answeredAt: string | null;
+  closedAt: string | null;
 }
 
-export interface Answer {
+/** One message in a question's thread — either the student or the assigned expert. */
+export interface Message {
   id: string;
   questionId: string;
-  responderId: string;
+  senderType: SenderType;
+  senderId: string;
   text: string;
-  rating: AnswerRating | null;
-  respondedInSeconds: number | null;
   createdAt: string;
 }
 
-export interface ReputationEvent {
+export interface AuraEvent {
   id: string;
   userId: string;
   points: number;

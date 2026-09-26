@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { universities } from "../db/store";
 import { asyncHandler } from "../utils/asyncHandler";
-import { requireAuth, requirePlatformAdmin, AuthedRequest } from "../middleware/auth";
+import { requireStaff, requirePlatformAdmin, AuthedRequest } from "../middleware/auth";
 
 export const universitiesRouter = Router();
 
@@ -34,7 +34,7 @@ const createSchema = z.object({
 // this is the "how do universities connect" mechanism described in the idea.
 universitiesRouter.post(
   "/universities",
-  requireAuth,
+  requireStaff,
   requirePlatformAdmin,
   asyncHandler(async (req, res) => {
     const data = createSchema.parse(req.body);
@@ -45,7 +45,7 @@ universitiesRouter.post(
 
 universitiesRouter.patch(
   "/universities/:id",
-  requireAuth,
+  requireStaff,
   requirePlatformAdmin,
   asyncHandler(async (req: AuthedRequest, res) => {
     const data = createSchema.partial().parse(req.body);

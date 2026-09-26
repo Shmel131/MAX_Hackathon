@@ -1,6 +1,6 @@
 # DATA-API.yaml — техническая карточка для автоматической проверки решения,
 # согласно требованиям раздела "Формат сдачи" брифа хакатона.
-schemaVersion: "1.0"
+schemaVersion: "2.0"
 solution:
   name: "AskVUZ"
   teamId: "REPLACE_WITH_TEAM_ID"
@@ -12,11 +12,6 @@ checks:
     path: /health
     role: anonymous
     expectedStatusCodes: [200]
-    expectedResponse:
-      contentType: application/json
-      schema:
-        ok: boolean
-        mockMax: boolean
 
   - name: "Список подключённых вузов"
     method: GET
@@ -27,48 +22,92 @@ checks:
       contentType: application/json
       schema: "array<University>"
 
-  - name: "Категории вопросов выбранного вуза"
-    method: GET
-    path: /api/universities/{universityId}/categories
-    role: anonymous
-    parameters:
-      path:
-        - name: universityId
-          required: true
-          type: string
-    expectedStatusCodes: [200]
-    expectedResponse:
-      contentType: application/json
-      schema: "array<Category>"
-
-  - name: "Старт диалога с ботом (эмуляция основного сценария МАХ)"
+  - name: "Вход студента по имени (MVP-идентификация)"
     method: POST
-    path: /api/simulator/start
+    path: /api/student/login
     role: anonymous
     body:
-      chatId: string
-      name: string
-    expectedStatusCodes: [200]
+      displayName: string
+    expectedStatusCodes: [201]
     expectedResponse:
       contentType: application/json
       schema:
-        text: string
-        buttons: "array<{id: string, label: string}>"
+        token: string
+        student: object
 
-  - name: "Отправка вопроса пользователем"
+  - name: "Старт визарда «Задать вопрос»"
     method: POST
-    path: /api/simulator/message
-    role: anonymous
+    path: /api/student/ask/start
+    role: student
+    auth: bearer
     body:
-      chatId: string
+      wizardId: string
+    expectedStatusCodes: [200]
+
+  - name: "Отправка текста вопроса (создание вопроса)"
+    method: POST
+    path: /api/student/ask/message
+    role: student
+    auth: bearer
+    body:
+      wizardId: string
       text: string
-      name: string
     expectedStatusCodes: [200]
     expectedResponse:
       contentType: application/json
       schema:
         text: string
         questionId: string
+
+  - name: "Мои вопросы — история вопросов студента"
+    method: GET
+    path: /api/student/questions
+    role: student
+    auth: bearer
+    expectedStatusCodes: [200]
+    expectedResponse:
+      contentType: application/json
+      schema: "array<StudentQuestionSummary>"
+
+  - name: "Студент продолжает диалог (уточняющий вопрос)"
+    method: POST
+    path: /api/student/questions/{id}/messages
+    role: student
+    auth: bearer
+    parameters:
+      path:
+        - name: id
+          required: true
+          type: string
+    body:
+      text: string
+    expectedStatusCodes: [201, 404, 409]
+
+  - name: "Студент оценивает ответ (начисление ауры)"
+    method: POST
+    path: /api/student/questions/{id}/rate
+    role: student
+    auth: bearer
+    parameters:
+      path:
+        - name: id
+          required: true
+          type: string
+    body:
+      rating: "HELPFUL | NOT_HELPFUL | RESOLVED"
+    expectedStatusCodes: [200, 404, 409]
+
+  - name: "Студент закрывает вопрос"
+    method: POST
+    path: /api/student/questions/{id}/close
+    role: student
+    auth: bearer
+    parameters:
+      path:
+        - name: id
+          required: true
+          type: string
+    expectedStatusCodes: [200, 404]
 
   - name: "Авторизация эксперта/администратора"
     method: POST
@@ -84,7 +123,7 @@ checks:
         token: string
         user: object
 
-  - name: "Очередь вопросов для эксперта"
+  - name: "Очередь эксперта (новые + свои вопросы в работе)"
     method: GET
     path: /api/questions/queue
     role: expert
@@ -92,9 +131,11 @@ checks:
     expectedStatusCodes: [200, 403]
     expectedResponse:
       contentType: application/json
-      schema: "array<Question>"
+      schema:
+        unclaimed: "array<Question>"
+        mine: "array<Question>"
 
-  - name: "Эксперт берёт вопрос в работу"
+  - name: "Эксперт берёт вопрос в работу (не удаляет его, а переводит в тред)"
     method: POST
     path: /api/questions/{id}/claim
     role: expert
@@ -105,13 +146,10 @@ checks:
           required: true
           type: string
     expectedStatusCodes: [200, 403, 404, 409]
-    expectedResponse:
-      contentType: application/json
-      schema: "Question"
 
-  - name: "Эксперт отвечает на вопрос"
+  - name: "Эксперт отвечает / продолжает диалог"
     method: POST
-    path: /api/questions/{id}/answers
+    path: /api/questions/{id}/messages
     role: expert
     auth: bearer
     parameters:
@@ -122,28 +160,8 @@ checks:
     body:
       text: string
     expectedStatusCodes: [201, 403, 404, 409]
-    expectedResponse:
-      contentType: application/json
-      schema: "Answer"
 
-  - name: "Оценка ответа и начисление репутации"
-    method: POST
-    path: /api/answers/{id}/rate
-    role: asker
-    parameters:
-      path:
-        - name: id
-          required: true
-          type: string
-    body:
-      rating: "HELPFUL | NOT_HELPFUL | RESOLVED"
-    expectedStatusCodes: [200, 404, 409]
-    expectedResponse:
-      contentType: application/json
-      schema:
-        ok: boolean
-
-  - name: "Рейтинг экспертов вуза"
+  - name: "Публичный рейтинг экспертов вуза по ауре"
     method: GET
     path: /api/universities/{universityId}/leaderboard
     role: anonymous
@@ -160,4 +178,5 @@ checks:
 notes: >
   Полная спецификация со схемами запросов/ответов — в openapi.yaml (OpenAPI 3.0)
   в корне репозитория. Тестовые учётные записи и пароли для роли "expert" —
-  в README.md, раздел "Тестовые учётные записи".
+  в README.md, раздел "Тестовые учётные записи". Файл базы данных (SQLite) —
+  backend/data/askvuz.db, см. README, раздел "Где хранятся данные".

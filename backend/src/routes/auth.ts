@@ -21,7 +21,7 @@ function toPublicUser(user: ReturnType<typeof users.findById>) {
     displayName: user.displayName,
     email: user.email,
     role: user.role,
-    reputationPoints: user.reputationPoints,
+    aura: user.aura,
     isAnswerer: !!user.isAnswerer,
     isUniversityAdmin: !!user.isUniversityAdmin,
     isPlatformAdmin: !!user.isPlatformAdmin,
@@ -30,6 +30,7 @@ function toPublicUser(user: ReturnType<typeof users.findById>) {
   };
 }
 
+/** Staff / expert / admin login — real e-mail + password (see README). */
 authRouter.post(
   "/auth/login",
   asyncHandler(async (req, res) => {
@@ -42,6 +43,7 @@ authRouter.post(
     if (!ok) return res.status(401).json({ error: "invalid credentials" });
 
     const payload: JwtPayload = {
+      kind: "staff",
       userId: user.id,
       isPlatformAdmin: !!user.isPlatformAdmin,
       isUniversityAdmin: !!user.isUniversityAdmin,
@@ -53,16 +55,23 @@ authRouter.post(
   })
 );
 
+/** Works for either a staff token or a student token — used by the frontend on boot. */
 authRouter.get(
-  "/auth/me",
+  "/auth/whoami",
   asyncHandler(async (req, res) => {
     const header = req.header("Authorization");
     if (!header?.startsWith("Bearer ")) return res.status(401).json({ error: "missing token" });
     try {
       const payload = jwt.verify(header.slice(7), config.jwtSecret) as JwtPayload;
-      const user = users.findById(payload.userId);
-      if (!user) return res.status(404).json({ error: "not found" });
-      res.json(toPublicUser(user));
+      if (payload.kind === "staff" && payload.userId) {
+        const user = users.findById(payload.userId);
+        if (!user) return res.status(404).json({ error: "not found" });
+        return res.json({ kind: "staff", ...toPublicUser(user) });
+      }
+      if (payload.kind === "student" && payload.studentId) {
+        return res.json({ kind: "student", id: payload.studentId, displayName: payload.displayName });
+      }
+      res.status(401).json({ error: "invalid token" });
     } catch {
       res.status(401).json({ error: "invalid token" });
     }

@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { Role } from "../db/models";
 import { users } from "../db/store";
 import { asyncHandler } from "../utils/asyncHandler";
-import { requireAuth, requireUniversityAdmin, requirePlatformAdmin, AuthedRequest } from "../middleware/auth";
+import { requireStaff, requireUniversityAdmin, requirePlatformAdmin, AuthedRequest } from "../middleware/auth";
 
 export const adminRouter = Router();
 
@@ -17,7 +17,7 @@ const inviteSchema = z.object({
   displayName: z.string().min(2),
   email: z.string().email(),
   isStaff: z.boolean().default(false),
-  startingRole: z.enum(["TRAINEE", "HELPER", "KNOWER", "EXPERT", "MENTOR", "PRO"]).default("TRAINEE"),
+  startingRole: z.enum(["HELPER", "KNOWER", "PRO"]).default("HELPER"),
 });
 
 /**
@@ -29,7 +29,7 @@ const inviteSchema = z.object({
  */
 adminRouter.post(
   "/admin/universities/:universityId/experts",
-  requireAuth,
+  requireStaff,
   requireUniversityAdmin,
   asyncHandler(async (req: AuthedRequest, res) => {
     const universityId = req.params.universityId;
@@ -62,7 +62,7 @@ adminRouter.post(
 
 adminRouter.get(
   "/admin/universities/:universityId/experts",
-  requireAuth,
+  requireStaff,
   requireUniversityAdmin,
   asyncHandler(async (req: AuthedRequest, res) => {
     const universityId = req.params.universityId;
@@ -73,12 +73,12 @@ adminRouter.get(
   })
 );
 
-const setRoleSchema = z.object({ role: z.enum(["TRAINEE", "HELPER", "KNOWER", "EXPERT", "MENTOR", "PRO"]) });
+const setRoleSchema = z.object({ role: z.enum(["HELPER", "KNOWER", "PRO"]) });
 
 /** Manual role override for verified staff (bypasses the points ladder). */
 adminRouter.patch(
   "/admin/experts/:id/role",
-  requireAuth,
+  requireStaff,
   requireUniversityAdmin,
   asyncHandler(async (req: AuthedRequest, res) => {
     const target = users.findById(req.params.id);
@@ -100,7 +100,7 @@ const createUniAdminSchema = z.object({
 
 adminRouter.post(
   "/admin/universities/:universityId/admins",
-  requireAuth,
+  requireStaff,
   requirePlatformAdmin,
   asyncHandler(async (req, res) => {
     const universityId = req.params.universityId;

@@ -3,27 +3,22 @@ import { Role } from "../db/models";
 export { Role } from "../db/models";
 
 // Ladder order from lowest to highest. Index = rank used for comparisons.
-export const ROLE_LADDER: Role[] = ["TRAINEE", "HELPER", "KNOWER", "EXPERT", "MENTOR", "PRO"];
+// Reduced to the three tiers the team decided to keep for the demo.
+export const ROLE_LADDER: Role[] = ["HELPER", "KNOWER", "PRO"];
 
 export const ROLE_LABELS_RU: Record<Role, string> = {
-  TRAINEE: "Стажёр",
   HELPER: "Помощник",
   KNOWER: "Знаток",
-  EXPERT: "Эксперт",
-  MENTOR: "Наставник",
   PRO: "Профи",
 };
 
-// Reputation points required to reach each role automatically.
-// isStaff accounts can be assigned a role manually by a university admin,
-// independent of accumulated points.
+// Aura ("аура" — the renamed reputation score, see backend/src/reputation.ts)
+// required to reach each role automatically. isStaff accounts can be
+// assigned a role manually by a university admin, independent of aura.
 export const ROLE_THRESHOLDS: Record<Role, number> = {
-  TRAINEE: 0,
-  HELPER: 50,
+  HELPER: 0,
   KNOWER: 150,
-  EXPERT: 350,
-  MENTOR: 700,
-  PRO: 1500,
+  PRO: 600,
 };
 
 export function roleRank(role: Role): number {
@@ -35,8 +30,13 @@ export function roleAtLeast(role: Role, minRole: Role): boolean {
 }
 
 export interface JwtPayload {
-  userId: string;
-  isPlatformAdmin: boolean;
-  isUniversityAdmin: boolean;
-  universityId: string | null;
+  kind: "staff" | "student";
+  // staff fields
+  userId?: string;
+  isPlatformAdmin?: boolean;
+  isUniversityAdmin?: boolean;
+  universityId?: string | null;
+  // student fields
+  studentId?: string;
+  displayName?: string;
 }

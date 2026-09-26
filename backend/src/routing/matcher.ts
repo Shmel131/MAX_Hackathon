@@ -6,7 +6,7 @@ import { roleAtLeast } from "../types";
  * who are eligible to see/claim it: role must meet the category's minRole,
  * and sensitive categories are further restricted to staff members.
  */
-export async function findEligibleExperts(universityId: string, categoryId: string) {
+export function findEligibleExperts(universityId: string, categoryId: string) {
   const category = categoriesStore.findById(categoryId);
   if (!category) return [];
 
@@ -15,7 +15,7 @@ export async function findEligibleExperts(universityId: string, categoryId: stri
   return candidates
     .filter((u) => (category.isSensitive ? u.isStaff === 1 : true))
     .filter((u) => roleAtLeast(u.role, category.minRole))
-    .sort((a, b) => b.reputationPoints - a.reputationPoints);
+    .sort((a, b) => b.aura - a.aura);
 }
 
 export function eligibilityRoomName(universityId: string, categoryId: string) {

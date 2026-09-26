@@ -3,13 +3,18 @@ import { universities, categories as categoriesStore, chatSessions, questions as
 import { findEligibleExperts } from "../routing/matcher";
 import { getIO } from "../sockets";
 import { logger } from "../logger";
+import { moderateQuestionText } from "../moderation";
 
 /**
- * Shared conversation state machine. Both the real MAX webhook handler
- * (src/max/webhook.ts) and the browser Chat Simulator (src/routes/simulator.ts)
- * drive the exact same engine, so the primary user scenario behaves identically
- * regardless of transport — only how the resulting message is *rendered*
- * (MAX inline keyboard vs. JSON button list) differs at the edges.
+ * Shared conversation state machine for the "выбор вуза → категория → вопрос"
+ * wizard. Both the real MAX webhook handler (src/max/webhook.ts) and the
+ * student's "Задать вопрос" flow in the web app
+ * (src/routes/student.ts → frontend/src/pages/AskQuestion.tsx) drive the same
+ * engine — only how the resulting message is *rendered* differs.
+ *
+ * A studentId is required to create a Question: for MAX it is resolved from
+ * the platform's own user id before calling into this module (see
+ * max/webhook.ts); for the web app it comes from the student's own JWT.
  */
 
 export type Button = { id: string; label: string };
@@ -17,17 +22,17 @@ export interface EngineReply {
   text: string;
   buttons?: Button[];
   questionId?: string;
+  done?: boolean;
 }
 
 const CMD_START = /^\/start\b/i;
-const CMD_CHANGE_UNIVERSITY = /^\/university\b/i;
 
-export async function getOrCreateSession(channel: Channel, externalChatId: string, askerName?: string) {
+export function getOrCreateSession(channel: Channel, externalChatId: string, studentId: string) {
   let session = chatSessions.findByExternalId(externalChatId);
   if (!session) {
-    session = chatSessions.create({ channel, externalChatId, askerName });
-  } else if (askerName && !session.askerName) {
-    session = chatSessions.update(session.id, { askerName });
+    session = chatSessions.create({ channel, externalChatId, studentId });
+  } else if (session.studentId !== studentId) {
+    session = chatSessions.update(session.id, { studentId });
   }
   return session;
 }
@@ -42,8 +47,8 @@ function categoryButtons(universityId: string): Button[] {
     .map((c) => ({ id: c.id, label: c.isSensitive ? `${c.title} (конфиденциально)` : c.title }));
 }
 
-export async function startOrResetGreeting(externalChatId: string, channel: Channel, askerName?: string): Promise<EngineReply> {
-  const session = await getOrCreateSession(channel, externalChatId, askerName);
+export function startOrResetWizard(externalChatId: string, channel: Channel, studentId: string): EngineReply {
+  const session = getOrCreateSession(channel, externalChatId, studentId);
   chatSessions.update(session.id, { step: "SELECT_UNIVERSITY", universityId: null, categoryId: null });
   const buttons = universityButtons();
   if (buttons.length === 0) {
@@ -56,12 +61,8 @@ export async function startOrResetGreeting(externalChatId: string, channel: Chan
 }
 
 /** Handles a button click (university/category selection). buttonId is the entity id. */
-export async function handleButtonClick(
-  channel: Channel,
-  externalChatId: string,
-  buttonId: string
-): Promise<EngineReply> {
-  const session = await getOrCreateSession(channel, externalChatId);
+export function handleButtonClick(channel: Channel, externalChatId: string, studentId: string, buttonId: string): EngineReply {
+  const session = getOrCreateSession(channel, externalChatId, studentId);
 
   if (session.step === "SELECT_UNIVERSITY") {
     const university = universities.findById(buttonId);
@@ -77,64 +78,62 @@ export async function handleButtonClick(
   }
 
   if (session.step === "SELECT_CATEGORY") {
-    if (!session.universityId) return startOrResetGreeting(externalChatId, channel);
+    if (!session.universityId) return startOrResetWizard(externalChatId, channel, studentId);
     const category = categoriesStore.findById(buttonId);
     if (!category || category.universityId !== session.universityId) {
       return { text: "Такая категория не найдена. Попробуйте ещё раз.", buttons: categoryButtons(session.universityId) };
     }
     chatSessions.update(session.id, { categoryId: category.id, step: "AWAIT_QUESTION" });
     const hint = category.isSensitive
-      ? "\n\nЭта тема конфиденциальна — вопрос увидят только специалисты вуза, а не случайные волонтёры."
+      ? "\n\nЭта тема конфиденциальна — вопрос увидят только сотрудники вуза."
       : "";
     return { text: `Категория: ${category.title}.${hint}\n\nНапишите ваш вопрос одним сообщением.` };
   }
 
-  return startOrResetGreeting(externalChatId, channel);
+  return startOrResetWizard(externalChatId, channel, studentId);
 }
 
 /** Handles a free-text message: either a command, or (if AWAIT_QUESTION) the question itself. */
-export async function handleTextMessage(
-  channel: Channel,
-  externalChatId: string,
-  text: string,
-  askerName?: string,
-  askerUserId?: string
-): Promise<EngineReply> {
+export function handleTextMessage(channel: Channel, externalChatId: string, studentId: string, text: string): EngineReply {
   if (CMD_START.test(text)) {
-    return startOrResetGreeting(externalChatId, channel, askerName);
+    return startOrResetWizard(externalChatId, channel, studentId);
   }
 
-  const session = await getOrCreateSession(channel, externalChatId, askerName);
-
-  if (CMD_CHANGE_UNIVERSITY.test(text)) {
-    return startOrResetGreeting(externalChatId, channel, askerName);
-  }
+  const session = getOrCreateSession(channel, externalChatId, studentId);
 
   if (session.step !== "AWAIT_QUESTION" || !session.universityId || !session.categoryId) {
     // Nudge the user back into the flow instead of dropping the message.
-    return startOrResetGreeting(externalChatId, channel, askerName);
+    const reset = startOrResetWizard(externalChatId, channel, studentId);
+    return { ...reset, text: `Похоже, диалог сбился. Начнём заново.\n\n${reset.text}` };
   }
 
   const category = categoriesStore.findById(session.categoryId);
-  if (!category) return startOrResetGreeting(externalChatId, channel, askerName);
+  if (!category) {
+    // Defensive default: the category the student picked no longer exists
+    // (deleted by an admin mid-conversation) — say so plainly instead of
+    // silently resetting the whole wizard with no explanation.
+    const reset = startOrResetWizard(externalChatId, channel, studentId);
+    return { ...reset, text: `Кажется, выбранная категория больше недоступна. Начнём заново.\n\n${reset.text}` };
+  }
+
+  const moderation = moderateQuestionText(text);
+  if (!moderation.ok) {
+    // Stay on the same step so the student can just retype the question.
+    return { text: moderation.reason! };
+  }
 
   const question = questionsStore.create({
     universityId: session.universityId,
     categoryId: session.categoryId,
-    askerId: askerUserId || null,
+    studentId,
     channel,
     externalChatId,
-    askerName: askerName || session.askerName || "Гость",
     text,
     isSensitive: category.isSensitive,
     status: category.isSensitive ? "ESCALATED" : "PENDING",
   });
 
-  // Reset to category selection so the same person can ask a follow-up
-  // question in the same university without re-selecting it.
-  chatSessions.update(session.id, { step: "SELECT_CATEGORY", categoryId: null });
-
-  const eligible = await findEligibleExperts(session.universityId, session.categoryId);
+  const eligible = findEligibleExperts(session.universityId, session.categoryId);
   logger.info("question.created", { questionId: question.id, categoryId: category.code, eligibleCount: eligible.length });
 
   getIO().to(`university:${session.universityId}`).emit("question:new", {
@@ -146,15 +145,14 @@ export async function handleTextMessage(
     createdAt: question.createdAt,
   });
 
-  const buttons = categoryButtons(session.universityId);
-  const queueNote =
-    eligible.length > 0
-      ? "Вопрос отправлен доступным специалистам вуза — ответ придёт прямо в этот чат."
-      : "Сейчас нет специалистов онлайн по этой теме, но вопрос сохранён и будет отвечен, как только кто-то из экспертов подключится.";
+  // Wizard is done for this turn — the question now lives in "Мои вопросы" /
+  // the expert's inbox as an ordinary thread; further replies use the thread
+  // endpoints, not this wizard.
+  chatSessions.update(session.id, { step: "DONE" });
 
   return {
-    text: `Спасибо! ${queueNote}\n\nМожете задать ещё один вопрос по другой теме:`,
-    buttons,
+    text: "Спасибо! Вопрос отправлен доступным специалистам вуза. Ответ появится в разделе «Мои вопросы» — там же можно писать специалисту дальше и закрыть вопрос, когда он не нужен.",
     questionId: question.id,
+    done: true,
   };
 }

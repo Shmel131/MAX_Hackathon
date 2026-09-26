@@ -3,8 +3,12 @@ version: "3.9"
 # One command to run every local component of AskVUZ:
 #   docker compose up --build
 #
-# backend  -> REST API + Socket.IO + MAX webhook, SQLite file persisted in a volume
-# frontend -> expert/admin panel + browser Chat Simulator, served by nginx
+# backend  -> REST API + Socket.IO + MAX webhook. Data is a plain SQLite file
+#             bind-mounted to ./backend/data/askvuz.db on the HOST — open it
+#             directly (e.g. with the "DB Browser for SQLite" app, or
+#             `sqlite3 backend/data/askvuz.db`) to inspect students, questions,
+#             messages, aura, etc. See README "Где хранятся данные".
+# frontend -> student cabinet + expert inbox + admin panel, served by nginx
 
 services:
   backend:
@@ -27,7 +31,7 @@ services:
       SEED_ON_START: ${SEED_ON_START:-true}
       DATABASE_FILE: /app/data/askvuz.db
     volumes:
-      - askvuz-db:/app/data
+      - ./backend/data:/app/data
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
       interval: 10s
@@ -43,6 +47,3 @@ services:
       - "5173:80"
     depends_on:
       - backend
-
-volumes:
-  askvuz-db:

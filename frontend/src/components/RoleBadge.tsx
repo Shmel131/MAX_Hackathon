@@ -1,11 +1,8 @@
 import { Role, ROLE_LABELS_RU, ROLE_ORDER } from "../types";
 
 const COLORS: Record<Role, string> = {
-  TRAINEE: "#9aa5b1",
   HELPER: "#4fb0ff",
   KNOWER: "#38c793",
-  EXPERT: "#ffb648",
-  MENTOR: "#ff7a59",
   PRO: "#8b5cf6",
 };
 

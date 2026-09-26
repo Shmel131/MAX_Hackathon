@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
-import { AuthUser } from "./types";
-import { api, getToken, getStoredUser, setToken, setStoredUser } from "./api";
+import { Identity } from "./types";
+import { api, getToken, setToken } from "./api";
 import { Login } from "./pages/Login";
+import { StudentHome } from "./pages/StudentHome";
+import { AskQuestion } from "./pages/AskQuestion";
+import { MyQuestions } from "./pages/MyQuestions";
 import { ExpertInbox } from "./pages/ExpertInbox";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { Leaderboard } from "./pages/Leaderboard";
-import { ChatSimulator } from "./pages/ChatSimulator";
 
 export default function App() {
-  const [user, setUser] = useState<AuthUser | null>(getStoredUser<AuthUser>());
+  const [identity, setIdentity] = useState<Identity | null>(null);
   const [checked, setChecked] = useState(false);
   const navigate = useNavigate();
 
@@ -20,27 +22,25 @@ export default function App() {
       return;
     }
     api
-      .get<AuthUser>("/api/auth/me")
-      .then((u) => {
-        setUser(u);
-        setStoredUser(u);
-      })
+      .get<Identity>("/api/auth/whoami")
+      .then(setIdentity)
       .catch(() => {
         setToken(null);
-        setStoredUser(null);
-        setUser(null);
+        setIdentity(null);
       })
       .finally(() => setChecked(true));
   }, []);
 
   function logout() {
     setToken(null);
-    setStoredUser(null);
-    setUser(null);
-    navigate("/login");
+    setIdentity(null);
+    navigate("/");
   }
 
   if (!checked) return null;
+
+  const isStudent = identity?.kind === "student";
+  const isStaff = identity?.kind === "staff";
 
   return (
     <div className="app-shell">
@@ -49,44 +49,41 @@ export default function App() {
           AskVUZ
         </Link>
         <nav>
-          <Link to="/simulator">Чат-симулятор</Link>
-          {user && (
-            <>
-              {user.isAnswerer && <Link to="/expert">Мои вопросы</Link>}
-              {(user.isUniversityAdmin || user.isPlatformAdmin) && <Link to="/admin">Админ-панель</Link>}
-              {user.universityId && <Link to="/leaderboard">Рейтинг</Link>}
-            </>
-          )}
+          <Link to="/leaderboard">Рейтинг</Link>
+          {isStudent && <Link to="/ask">Задать вопрос</Link>}
+          {isStudent && <Link to="/my-questions">Мои вопросы</Link>}
+          {isStaff && identity.isAnswerer && <Link to="/expert">Мои вопросы</Link>}
+          {isStaff && (identity.isUniversityAdmin || identity.isPlatformAdmin) && <Link to="/admin">Админ-панель</Link>}
         </nav>
         <div className="app-header__right">
-          {user ? (
+          {identity ? (
             <>
-              <span className="muted">{user.displayName}</span>
+              <span className="muted">{identity.displayName}</span>
               <button onClick={logout}>Выйти</button>
             </>
           ) : (
-            <Link to="/login">Войти</Link>
+            <Link to="/login" className="staff-login-link">
+              Войти
+            </Link>
           )}
         </div>
       </header>
 
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<Navigate to="/simulator" replace />} />
-          <Route path="/simulator" element={<ChatSimulator />} />
-          <Route path="/login" element={<Login onLoggedIn={setUser} />} />
+          <Route path="/" element={<StudentHome identity={identity} onLoggedIn={setIdentity} />} />
           <Route
-            path="/expert"
-            element={user ? <ExpertInbox user={user} /> : <Navigate to="/login" replace />}
+            path="/ask"
+            element={isStudent ? <AskQuestion /> : <Navigate to="/" replace />}
           />
           <Route
-            path="/admin"
-            element={user ? <AdminDashboard user={user} /> : <Navigate to="/login" replace />}
+            path="/my-questions"
+            element={isStudent ? <MyQuestions /> : <Navigate to="/" replace />}
           />
-          <Route
-            path="/leaderboard"
-            element={user ? <Leaderboard user={user} /> : <Navigate to="/login" replace />}
-          />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/login" element={<Login onLoggedIn={setIdentity} />} />
+          <Route path="/expert" element={isStaff ? <ExpertInbox user={identity} /> : <Navigate to="/login" replace />} />
+          <Route path="/admin" element={isStaff ? <AdminDashboard user={identity} /> : <Navigate to="/login" replace />} />
         </Routes>
       </main>
     </div>

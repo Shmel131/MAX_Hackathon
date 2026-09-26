@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AuthUser, Category, University, Role, ROLE_LABELS_RU, ROLE_ORDER } from "../types";
+import { Identity, Category, University, Role, ROLE_LABELS_RU, ROLE_ORDER } from "../types";
 import { api } from "../api";
 
 interface Expert {
@@ -7,11 +7,11 @@ interface Expert {
   displayName: string;
   email: string | null;
   role: Role;
-  reputationPoints: number;
+  aura: number;
   isStaff: 0 | 1 | boolean;
 }
 
-export function AdminDashboard({ user }: { user: AuthUser }) {
+export function AdminDashboard({ user }: { user: Extract<Identity, { kind: "staff" }> }) {
   return (
     <div className="panel">
       {user.isPlatformAdmin && <PlatformAdminSection />}
@@ -82,12 +82,12 @@ function UniversityAdminSection({ universityId }: { universityId: string }) {
 
   const [catTitle, setCatTitle] = useState("");
   const [catCode, setCatCode] = useState("");
-  const [catMinRole, setCatMinRole] = useState<Role>("TRAINEE");
+  const [catMinRole, setCatMinRole] = useState<Role>("HELPER");
   const [catSensitive, setCatSensitive] = useState(false);
 
   const [expName, setExpName] = useState("");
   const [expEmail, setExpEmail] = useState("");
-  const [expRole, setExpRole] = useState<Role>("TRAINEE");
+  const [expRole, setExpRole] = useState<Role>("HELPER");
   const [expStaff, setExpStaff] = useState(false);
   const [lastInvite, setLastInvite] = useState<{ email: string; temporaryPassword: string } | null>(null);
 
@@ -116,7 +116,7 @@ function UniversityAdminSection({ universityId }: { universityId: string }) {
       });
       setCatTitle("");
       setCatCode("");
-      setCatMinRole("TRAINEE");
+      setCatMinRole("HELPER");
       setCatSensitive(false);
       loadCategories();
     } catch (e) {
@@ -137,7 +137,7 @@ function UniversityAdminSection({ universityId }: { universityId: string }) {
       setLastInvite(res);
       setExpName("");
       setExpEmail("");
-      setExpRole("TRAINEE");
+      setExpRole("HELPER");
       setExpStaff(false);
       loadExperts();
     } catch (e) {
@@ -184,7 +184,7 @@ function UniversityAdminSection({ universityId }: { universityId: string }) {
       <ul className="list">
         {experts.map((ex) => (
           <li key={ex.id}>
-            {ex.displayName} — {ROLE_LABELS_RU[ex.role]}, {ex.reputationPoints} баллов
+            {ex.displayName} — {ROLE_LABELS_RU[ex.role]}, {ex.aura} ауры
             <select value={ex.role} onChange={(e) => changeRole(ex.id, e.target.value as Role)}>
               {ROLE_ORDER.map((r) => (
                 <option key={r} value={r}>

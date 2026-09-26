@@ -1,22 +1,14 @@
 export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
+const TOKEN_KEY = "askvuz_token";
+
 export function getToken(): string | null {
-  return localStorage.getItem("askvuz_token");
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem("askvuz_token", token);
-  else localStorage.removeItem("askvuz_token");
-}
-
-export function getStoredUser<T = any>(): T | null {
-  const raw = localStorage.getItem("askvuz_user");
-  return raw ? JSON.parse(raw) : null;
-}
-
-export function setStoredUser(user: unknown) {
-  if (user) localStorage.setItem("askvuz_user", JSON.stringify(user));
-  else localStorage.removeItem("askvuz_user");
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {

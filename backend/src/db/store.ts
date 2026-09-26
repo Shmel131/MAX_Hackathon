@@ -1,14 +1,6 @@
 import crypto from "crypto";
 import { db } from "./connection";
-import {
-  University,
-  Category,
-  UserProfile,
-  ChatSession,
-  Question,
-  Answer,
-  ReputationEvent,
-} from "./models";
+import { University, Category, UserProfile, Student, ChatSession, Question, Message, AuraEvent } from "./models";
 
 export const newId = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
@@ -118,7 +110,7 @@ export const categories = {
 };
 
 // ---------------------------------------------------------------------------
-// user profiles
+// staff / answerer / admin accounts
 // ---------------------------------------------------------------------------
 export const users = {
   findById(id: string): UserProfile | undefined {
@@ -129,7 +121,7 @@ export const users = {
   },
   findAnswerersByUniversity(universityId: string): UserProfile[] {
     return db
-      .prepare(`SELECT * FROM user_profiles WHERE universityId = ? AND isAnswerer = 1 ORDER BY reputationPoints DESC`)
+      .prepare(`SELECT * FROM user_profiles WHERE universityId = ? AND isAnswerer = 1 ORDER BY aura DESC`)
       .all(universityId) as UserProfile[];
   },
   findOnlineAnswerers(universityId: string): UserProfile[] {
@@ -140,7 +132,6 @@ export const users = {
   create(data: Partial<UserProfile> & { displayName: string }): UserProfile {
     const row: UserProfile = {
       id: newId(),
-      maxUserId: data.maxUserId ?? null,
       displayName: data.displayName,
       email: data.email ?? null,
       passwordHash: data.passwordHash ?? null,
@@ -149,14 +140,14 @@ export const users = {
       isUniversityAdmin: data.isUniversityAdmin ? 1 : 0,
       isPlatformAdmin: data.isPlatformAdmin ? 1 : 0,
       isStaff: data.isStaff ? 1 : 0,
-      role: data.role ?? "TRAINEE",
-      reputationPoints: data.reputationPoints ?? 0,
+      role: data.role ?? "HELPER",
+      aura: data.aura ?? 0,
       isOnline: 0,
       createdAt: now(),
     };
     db.prepare(
-      `INSERT INTO user_profiles (id, maxUserId, displayName, email, passwordHash, universityId, isAnswerer, isUniversityAdmin, isPlatformAdmin, isStaff, role, reputationPoints, isOnline, createdAt)
-       VALUES (@id, @maxUserId, @displayName, @email, @passwordHash, @universityId, @isAnswerer, @isUniversityAdmin, @isPlatformAdmin, @isStaff, @role, @reputationPoints, @isOnline, @createdAt)`
+      `INSERT INTO user_profiles (id, displayName, email, passwordHash, universityId, isAnswerer, isUniversityAdmin, isPlatformAdmin, isStaff, role, aura, isOnline, createdAt)
+       VALUES (@id, @displayName, @email, @passwordHash, @universityId, @isAnswerer, @isUniversityAdmin, @isPlatformAdmin, @isStaff, @role, @aura, @isOnline, @createdAt)`
     ).run(row);
     return row;
   },
@@ -167,7 +158,7 @@ export const users = {
     db.prepare(
       `UPDATE user_profiles SET displayName=@displayName, email=@email, passwordHash=@passwordHash, universityId=@universityId,
        isAnswerer=@isAnswerer, isUniversityAdmin=@isUniversityAdmin, isPlatformAdmin=@isPlatformAdmin, isStaff=@isStaff,
-       role=@role, reputationPoints=@reputationPoints, isOnline=@isOnline WHERE id=@id`
+       role=@role, aura=@aura, isOnline=@isOnline WHERE id=@id`
     ).run(merged);
     return merged;
   },
@@ -175,18 +166,66 @@ export const users = {
     db.prepare(`UPDATE user_profiles SET isOnline = ? WHERE id = ?`).run(isOnline ? 1 : 0, id);
   },
   countAnswers(userId: string): number {
-    return (db.prepare(`SELECT COUNT(*) c FROM answers WHERE responderId = ?`).get(userId) as { c: number }).c;
+    return (
+      db.prepare(`SELECT COUNT(*) c FROM messages WHERE senderType = 'EXPERT' AND senderId = ?`).get(userId) as { c: number }
+    ).c;
   },
 };
 
 // ---------------------------------------------------------------------------
-// chat sessions (conversation-engine state machine)
+// students
+// ---------------------------------------------------------------------------
+export const students = {
+  findById(id: string): Student | undefined {
+    return db.prepare(`SELECT * FROM students WHERE id = ?`).get(id) as Student | undefined;
+  },
+  findByMaxUserId(maxUserId: string): Student | undefined {
+    return db.prepare(`SELECT * FROM students WHERE maxUserId = ?`).get(maxUserId) as Student | undefined;
+  },
+  /**
+   * MVP name-only identity (see README, "Известные ограничения MVP"): several
+   * people could in theory share a display name, but for the demo/hackathon
+   * scope we treat a case-insensitively-matched name as "the same student" so
+   * that logging out and back in does not orphan their question history.
+   * A real deployment authenticates by login/password or the MAX platform id
+   * instead (see findOrCreateByMaxUserId below), where this collision can't happen.
+   */
+  findByDisplayName(displayName: string): Student | undefined {
+    // SQLite's built-in lower()/upper() only fold ASCII, not Cyrillic, so a
+    // SQL-side "lower(a) = lower(b)" comparison silently fails to match
+    // "Олеся" against "олеся". Compare case-insensitively in JS instead —
+    // the students table is tiny (one row per person who has ever asked a
+    // question), so scanning it is cheap.
+    const target = displayName.trim().toLocaleLowerCase("ru-RU");
+    const candidates = db.prepare(`SELECT * FROM students WHERE maxUserId IS NULL ORDER BY createdAt ASC`).all() as Student[];
+    return candidates.find((s) => s.displayName.trim().toLocaleLowerCase("ru-RU") === target);
+  },
+  create(data: { displayName: string; maxUserId?: string | null }): Student {
+    const row: Student = {
+      id: newId(),
+      displayName: data.displayName,
+      maxUserId: data.maxUserId ?? null,
+      createdAt: now(),
+    };
+    db.prepare(`INSERT INTO students (id, displayName, maxUserId, createdAt) VALUES (@id, @displayName, @maxUserId, @createdAt)`).run(row);
+    return row;
+  },
+  findOrCreateByMaxUserId(maxUserId: string, displayName: string): Student {
+    return this.findByMaxUserId(maxUserId) ?? this.create({ displayName, maxUserId });
+  },
+  findOrCreateByDisplayName(displayName: string): Student {
+    return this.findByDisplayName(displayName) ?? this.create({ displayName: displayName.trim() });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// chat sessions (conversation-engine wizard state)
 // ---------------------------------------------------------------------------
 export const chatSessions = {
   findByExternalId(externalChatId: string): ChatSession | undefined {
     return db.prepare(`SELECT * FROM chat_sessions WHERE externalChatId = ?`).get(externalChatId) as ChatSession | undefined;
   },
-  create(data: { channel: ChatSession["channel"]; externalChatId: string; askerName?: string }): ChatSession {
+  create(data: { channel: ChatSession["channel"]; externalChatId: string; studentId?: string | null }): ChatSession {
     const row: ChatSession = {
       id: newId(),
       channel: data.channel,
@@ -194,22 +233,22 @@ export const chatSessions = {
       step: "SELECT_UNIVERSITY",
       universityId: null,
       categoryId: null,
-      askerName: data.askerName ?? null,
+      studentId: data.studentId ?? null,
       updatedAt: now(),
       createdAt: now(),
     };
     db.prepare(
-      `INSERT INTO chat_sessions (id, channel, externalChatId, step, universityId, categoryId, askerName, updatedAt, createdAt)
-       VALUES (@id, @channel, @externalChatId, @step, @universityId, @categoryId, @askerName, @updatedAt, @createdAt)`
+      `INSERT INTO chat_sessions (id, channel, externalChatId, step, universityId, categoryId, studentId, updatedAt, createdAt)
+       VALUES (@id, @channel, @externalChatId, @step, @universityId, @categoryId, @studentId, @updatedAt, @createdAt)`
     ).run(row);
     return row;
   },
-  update(id: string, data: Partial<Pick<ChatSession, "step" | "universityId" | "categoryId" | "askerName">>): ChatSession {
+  update(id: string, data: Partial<Pick<ChatSession, "step" | "universityId" | "categoryId" | "studentId">>): ChatSession {
     const existing = db.prepare(`SELECT * FROM chat_sessions WHERE id = ?`).get(id) as ChatSession;
     const merged = { ...existing, ...data, updatedAt: now() };
-    db.prepare(`UPDATE chat_sessions SET step=@step, universityId=@universityId, categoryId=@categoryId, askerName=@askerName, updatedAt=@updatedAt WHERE id=@id`).run(
-      merged
-    );
+    db.prepare(
+      `UPDATE chat_sessions SET step=@step, universityId=@universityId, categoryId=@categoryId, studentId=@studentId, updatedAt=@updatedAt WHERE id=@id`
+    ).run(merged);
     return merged;
   },
 };
@@ -223,21 +262,35 @@ export const questions = {
   },
   findOpenByUniversity(universityId: string): Question[] {
     return db
-      .prepare(`SELECT * FROM questions WHERE universityId = ? AND status IN ('PENDING','ESCALATED') ORDER BY createdAt ASC`)
+      .prepare(`SELECT * FROM questions WHERE universityId = ? AND status != 'CLOSED' ORDER BY createdAt ASC`)
       .all(universityId) as Question[];
   },
-  create(data: Omit<Question, "id" | "createdAt" | "routedAt" | "answeredAt" | "assignedToId">): Question {
+  findByStudent(studentId: string): Question[] {
+    return db.prepare(`SELECT * FROM questions WHERE studentId = ? ORDER BY createdAt DESC`).all(studentId) as Question[];
+  },
+  create(data: {
+    universityId: string;
+    categoryId: string;
+    studentId: string;
+    channel: Question["channel"];
+    externalChatId: string;
+    text: string;
+    isSensitive: 0 | 1;
+    status: Question["status"];
+  }): Question {
     const row: Question = {
       ...data,
       id: newId(),
       assignedToId: null,
+      askerRating: null,
       createdAt: now(),
       routedAt: null,
       answeredAt: null,
+      closedAt: null,
     };
     db.prepare(
-      `INSERT INTO questions (id, universityId, categoryId, askerId, channel, externalChatId, askerName, text, status, isSensitive, assignedToId, createdAt, routedAt, answeredAt)
-       VALUES (@id, @universityId, @categoryId, @askerId, @channel, @externalChatId, @askerName, @text, @status, @isSensitive, @assignedToId, @createdAt, @routedAt, @answeredAt)`
+      `INSERT INTO questions (id, universityId, categoryId, studentId, channel, externalChatId, text, status, isSensitive, assignedToId, askerRating, createdAt, routedAt, answeredAt, closedAt)
+       VALUES (@id, @universityId, @categoryId, @studentId, @channel, @externalChatId, @text, @status, @isSensitive, @assignedToId, @askerRating, @createdAt, @routedAt, @answeredAt, @closedAt)`
     ).run(row);
     return row;
   },
@@ -246,55 +299,46 @@ export const questions = {
     if (!existing) return undefined;
     const merged = { ...existing, ...data } as Question;
     db.prepare(
-      `UPDATE questions SET status=@status, assignedToId=@assignedToId, routedAt=@routedAt, answeredAt=@answeredAt WHERE id=@id`
+      `UPDATE questions SET status=@status, assignedToId=@assignedToId, askerRating=@askerRating, routedAt=@routedAt, answeredAt=@answeredAt, closedAt=@closedAt WHERE id=@id`
     ).run(merged);
     return merged;
   },
 };
 
 // ---------------------------------------------------------------------------
-// answers
+// messages (thread)
 // ---------------------------------------------------------------------------
-export const answers = {
-  findById(id: string): Answer | undefined {
-    return db.prepare(`SELECT * FROM answers WHERE id = ?`).get(id) as Answer | undefined;
+export const messages = {
+  findByQuestion(questionId: string): Message[] {
+    return db.prepare(`SELECT * FROM messages WHERE questionId = ? ORDER BY createdAt ASC`).all(questionId) as Message[];
   },
-  findByQuestion(questionId: string): (Answer & { responder: UserProfile })[] {
-    const rows = db.prepare(`SELECT * FROM answers WHERE questionId = ? ORDER BY createdAt ASC`).all(questionId) as Answer[];
-    return rows.map((a) => ({ ...a, responder: users.findById(a.responderId)! }));
+  lastByQuestion(questionId: string): Message | undefined {
+    return db.prepare(`SELECT * FROM messages WHERE questionId = ? ORDER BY createdAt DESC LIMIT 1`).get(questionId) as
+      | Message
+      | undefined;
   },
-  create(data: { questionId: string; responderId: string; text: string; respondedInSeconds: number }): Answer {
-    const row: Answer = {
-      id: newId(),
-      questionId: data.questionId,
-      responderId: data.responderId,
-      text: data.text,
-      rating: null,
-      respondedInSeconds: data.respondedInSeconds,
-      createdAt: now(),
+  hasExpertMessage(questionId: string): boolean {
+    const row = db.prepare(`SELECT COUNT(*) c FROM messages WHERE questionId = ? AND senderType = 'EXPERT'`).get(questionId) as {
+      c: number;
     };
+    return row.c > 0;
+  },
+  create(data: { questionId: string; senderType: Message["senderType"]; senderId: string; text: string }): Message {
+    const row: Message = { id: newId(), ...data, createdAt: now() };
     db.prepare(
-      `INSERT INTO answers (id, questionId, responderId, text, rating, respondedInSeconds, createdAt)
-       VALUES (@id, @questionId, @responderId, @text, @rating, @respondedInSeconds, @createdAt)`
+      `INSERT INTO messages (id, questionId, senderType, senderId, text, createdAt) VALUES (@id, @questionId, @senderType, @senderId, @text, @createdAt)`
     ).run(row);
     return row;
-  },
-  setRating(id: string, rating: Answer["rating"]): Answer | undefined {
-    const existing = this.findById(id);
-    if (!existing) return undefined;
-    const merged = { ...existing, rating };
-    db.prepare(`UPDATE answers SET rating = @rating WHERE id = @id`).run(merged);
-    return merged;
   },
 };
 
 // ---------------------------------------------------------------------------
-// reputation events
+// aura events (reputation log)
 // ---------------------------------------------------------------------------
-export const reputationEvents = {
-  create(data: { userId: string; points: number; reason: string }): ReputationEvent {
-    const row: ReputationEvent = { id: newId(), ...data, createdAt: now() };
-    db.prepare(`INSERT INTO reputation_events (id, userId, points, reason, createdAt) VALUES (@id, @userId, @points, @reason, @createdAt)`).run(
+export const auraEvents = {
+  create(data: { userId: string; points: number; reason: string }): AuraEvent {
+    const row: AuraEvent = { id: newId(), ...data, createdAt: now() };
+    db.prepare(`INSERT INTO aura_events (id, userId, points, reason, createdAt) VALUES (@id, @userId, @points, @reason, @createdAt)`).run(
       row
     );
     return row;

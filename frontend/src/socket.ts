@@ -3,25 +3,21 @@ import { API_BASE, getToken } from "./api";
 
 let socket: Socket | null = null;
 
-export function getExpertSocket(): Socket {
-  if (!socket) {
-    socket = io(API_BASE, { auth: { token: getToken() }, autoConnect: false });
+/** One shared socket for the whole app — the server figures out from the JWT
+ * whether this is a staff/expert connection (joins its university room) or a
+ * student connection (joins its own private room). */
+export function connectSocket(): Socket {
+  const token = getToken();
+  if (socket) {
+    socket.auth = { token };
+    if (!socket.connected) socket.connect();
+    return socket;
   }
+  socket = io(API_BASE, { auth: { token } });
   return socket;
 }
 
-export function connectExpertSocket() {
-  const s = getExpertSocket();
-  s.auth = { token: getToken() };
-  if (!s.connected) s.connect();
-  return s;
-}
-
-export function disconnectExpertSocket() {
+export function disconnectSocket() {
   socket?.disconnect();
-}
-
-export function openSimulatorSocket(chatId: string): Socket {
-  const s = io(API_BASE, { auth: { simulatorChatId: chatId } });
-  return s;
+  socket = null;
 }
