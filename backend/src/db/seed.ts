@@ -7,15 +7,15 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@askvuz.local";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin12345";
 
 const CATEGORY_TEMPLATE: Array<{ code: string; title: string; minRole: Role; isSensitive?: boolean; sortOrder: number }> = [
-  { code: "ADMISSION", title: "Поступление", minRole: "HELPER", sortOrder: 1 },
-  { code: "STUDY", title: "Учебный процесс", minRole: "HELPER", sortOrder: 2 },
-  { code: "DOCS", title: "Заказ справок и документов", minRole: "KNOWER", sortOrder: 3 },
-  { code: "SCHOLARSHIP", title: "Стипендии и матпомощь", minRole: "KNOWER", sortOrder: 4 },
-  { code: "DORM", title: "Общежитие и быт", minRole: "HELPER", sortOrder: 5 },
-  { code: "SCIENCE", title: "Наука и допобразование", minRole: "HELPER", sortOrder: 6 },
-  { code: "CAREER", title: "Карьера и стажировки", minRole: "KNOWER", sortOrder: 7 },
-  { code: "CAMPUS_LIFE", title: "Студенческая жизнь", minRole: "HELPER", sortOrder: 8 },
-  { code: "SUPPORT", title: "Психологическая поддержка и безопасность", minRole: "PRO", isSensitive: true, sortOrder: 9 },
+  { code: "STUDY", title: "Учебный процесс", minRole: "HELPER", sortOrder: 1 },
+  { code: "DOCS", title: "Заказ справок и документов", minRole: "KNOWER", sortOrder: 2 },
+  { code: "SCHOLARSHIP", title: "Стипендии и матпомощь", minRole: "KNOWER", sortOrder: 3 },
+  { code: "DORM", title: "Общежитие и быт", minRole: "HELPER", sortOrder: 4 },
+  { code: "SCIENCE", title: "Наука и допобразование", minRole: "HELPER", sortOrder: 5 },
+  { code: "CAREER", title: "Карьера и стажировки", minRole: "KNOWER", sortOrder: 6 },
+  { code: "CAMPUS_LIFE", title: "Студенческая жизнь", minRole: "HELPER", sortOrder: 7 },
+  { code: "SUPPORT", title: "Психологическая поддержка и безопасность", minRole: "PRO", isSensitive: true, sortOrder: 8 },
+  { code: "ADMISSION", title: "Прочее", minRole: "HELPER", sortOrder: 9 }
 ];
 
 async function upsertExpert(params: {
