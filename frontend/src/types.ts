@@ -28,7 +28,6 @@ export interface Category {
   sortOrder: number;
 }
 
-/** Whoever is currently logged in — either a staff/expert/admin account or a student. */
 export type Identity =
   | ({ kind: "staff" } & StaffUser)
   | ({ kind: "student" } & { id: string; displayName: string });

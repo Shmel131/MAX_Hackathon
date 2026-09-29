@@ -46,9 +46,6 @@ function PlatformAdminSection() {
     e.preventDefault();
     setError(null);
     try {
-      // Onboarding a university always creates its first admin account in
-      // the same step — otherwise no one could log in to run it, and a
-      // platform admin would have to remember a second step every time.
       const res = await api.post<{ admin: { email: string; temporaryPassword: string } }>("/api/universities", {
         name,
         slug,

@@ -63,7 +63,6 @@ export function ExpertInbox({ user }: { user: Extract<Identity, { kind: "staff" 
       socket.off("question:message", refresh);
       disconnectSocket();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.isAnswerer]);
 
   useEffect(() => {

@@ -23,13 +23,6 @@ function randomId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-/**
- * "Задать вопрос" — the university→category→question wizard, gated behind
- * student login. Talks to the exact same backend engine
- * (backend/src/conversation/engine.ts) that drives the real MAX chat-bot —
- * only the transport differs. Once submitted, the question and every
- * following message live in "Мои вопросы", not in this wizard.
- */
 export function AskQuestion() {
   const [wizardId, setWizardId] = useState(randomId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -43,7 +36,6 @@ export function AskQuestion() {
 
   useEffect(() => {
     start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wizardId]);
 
   async function start() {
@@ -82,11 +74,6 @@ export function AskQuestion() {
       <h2>Задать вопрос</h2>
       <div className="chat-window">
         {messages.map((m, i) => {
-          // Only the LAST bot message's buttons are live. Earlier bubbles are
-          // kept for the transcript but their buttons are no longer wired to
-          // a click handler — clicking a stale "Поступление"/"Спорт" button
-          // from three turns ago used to desync the wizard's server-side
-          // step and made the bot appear to randomly reset to "выберите вуз".
           const isLastBotMessage = m.from === "bot" && !messages.slice(i + 1).some((later) => later.from === "bot");
           return (
             <div key={m.id} className={`chat-bubble chat-bubble--${m.from}`}>

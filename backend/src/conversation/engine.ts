@@ -5,18 +5,6 @@ import { getIO } from "../sockets";
 import { logger } from "../logger";
 import { moderateQuestionText } from "../moderation";
 
-/**
- * Shared conversation state machine for the "выбор вуза → категория → вопрос"
- * wizard. Both the real MAX webhook handler (src/max/webhook.ts) and the
- * student's "Задать вопрос" flow in the web app
- * (src/routes/student.ts → frontend/src/pages/AskQuestion.tsx) drive the same
- * engine — only how the resulting message is *rendered* differs.
- *
- * A studentId is required to create a Question: for MAX it is resolved from
- * the platform's own user id before calling into this module (see
- * max/webhook.ts); for the web app it comes from the student's own JWT.
- */
-
 export type Button = { id: string; label: string };
 export interface EngineReply {
   text: string;
@@ -60,7 +48,6 @@ export function startOrResetWizard(externalChatId: string, channel: Channel, stu
   };
 }
 
-/** Handles a button click (university/category selection). buttonId is the entity id. */
 export function handleButtonClick(channel: Channel, externalChatId: string, studentId: string, buttonId: string): EngineReply {
   const session = getOrCreateSession(channel, externalChatId, studentId);
 
@@ -93,7 +80,6 @@ export function handleButtonClick(channel: Channel, externalChatId: string, stud
   return startOrResetWizard(externalChatId, channel, studentId);
 }
 
-/** Handles a free-text message: either a command, or (if AWAIT_QUESTION) the question itself. */
 export function handleTextMessage(channel: Channel, externalChatId: string, studentId: string, text: string): EngineReply {
   if (CMD_START.test(text)) {
     return startOrResetWizard(externalChatId, channel, studentId);
@@ -102,23 +88,18 @@ export function handleTextMessage(channel: Channel, externalChatId: string, stud
   const session = getOrCreateSession(channel, externalChatId, studentId);
 
   if (session.step !== "AWAIT_QUESTION" || !session.universityId || !session.categoryId) {
-    // Nudge the user back into the flow instead of dropping the message.
     const reset = startOrResetWizard(externalChatId, channel, studentId);
     return { ...reset, text: `Похоже, диалог сбился. Начнём заново.\n\n${reset.text}` };
   }
 
   const category = categoriesStore.findById(session.categoryId);
   if (!category) {
-    // Defensive default: the category the student picked no longer exists
-    // (deleted by an admin mid-conversation) — say so plainly instead of
-    // silently resetting the whole wizard with no explanation.
     const reset = startOrResetWizard(externalChatId, channel, studentId);
     return { ...reset, text: `Кажется, выбранная категория больше недоступна. Начнём заново.\n\n${reset.text}` };
   }
 
   const moderation = moderateQuestionText(text);
   if (!moderation.ok) {
-    // Stay on the same step so the student can just retype the question.
     return { text: moderation.reason! };
   }
 
@@ -145,9 +126,6 @@ export function handleTextMessage(channel: Channel, externalChatId: string, stud
     createdAt: question.createdAt,
   });
 
-  // Wizard is done for this turn — the question now lives in "Мои вопросы" /
-  // the expert's inbox as an ordinary thread; further replies use the thread
-  // endpoints, not this wizard.
   chatSessions.update(session.id, { step: "DONE" });
 
   return {

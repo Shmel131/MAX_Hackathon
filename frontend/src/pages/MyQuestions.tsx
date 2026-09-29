@@ -14,8 +14,6 @@ export function MyQuestions() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [thread, setThread] = useState<ThreadDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Mirrors selectedId for use inside the mount-only socket effect below,
-  // so the socket doesn't have to be torn down and rebuilt on every click.
   const selectedIdRef = useRef<string | null>(null);
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -40,9 +38,6 @@ export function MyQuestions() {
     }
   }, []);
 
-  // Realtime push (best effort) + a polling fallback, so answers still show
-  // up even if a socket reconnect is ever missed — connect once on mount,
-  // never mid-session, so switching between questions never touches it.
   useEffect(() => {
     loadList();
     const socket = connectSocket();
@@ -65,7 +60,6 @@ export function MyQuestions() {
       socket.off("question:closed", onClosed);
       disconnectSocket();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

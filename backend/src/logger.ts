@@ -1,4 +1,3 @@
-/* Minimal structured logger, no external deps. */
 type Level = "info" | "warn" | "error" | "debug";
 
 function log(level: Level, msg: string, meta?: Record<string, unknown>) {
@@ -8,7 +7,7 @@ function log(level: Level, msg: string, meta?: Record<string, unknown>) {
     msg,
     ...meta,
   };
-  // eslint-disable-next-line no-console
+
   console.log(JSON.stringify(line));
 }
 

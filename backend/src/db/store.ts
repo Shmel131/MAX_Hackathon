@@ -5,9 +5,6 @@ import { University, Category, UserProfile, Student, ChatSession, Question, Mess
 export const newId = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 
-// ---------------------------------------------------------------------------
-// universities
-// ---------------------------------------------------------------------------
 export const universities = {
   findActive(): University[] {
     return db.prepare(`SELECT * FROM universities WHERE isActive = 1 ORDER BY name ASC`).all() as University[];
@@ -49,9 +46,6 @@ export const universities = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// categories
-// ---------------------------------------------------------------------------
 export const categories = {
   findByUniversity(universityId: string): Category[] {
     return db
@@ -109,9 +103,6 @@ export const categories = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// staff / answerer / admin accounts
-// ---------------------------------------------------------------------------
 export const users = {
   findById(id: string): UserProfile | undefined {
     return db.prepare(`SELECT * FROM user_profiles WHERE id = ?`).get(id) as UserProfile | undefined;
@@ -157,24 +148,16 @@ export const users = {
     ).run(merged);
     return merged;
   },
-  /** "Delete" a staff member — deactivates the account (blocks login, drops
-   * them from queues/leaderboards) instead of a hard DELETE, so their past
-   * answers/aura history and message thread stay intact for the students who
-   * received them. */
+
   deactivate(id: string): UserProfile | undefined {
     return this.update(id, { isActive: 0 });
   },
-  /** Counts claimed chats ("взял в работу"), not individual messages — an
-   * expert who sends five follow-up messages in one thread still counts as
-   * having answered one question. */
+
   countAnswers(userId: string): number {
     return (db.prepare(`SELECT COUNT(*) c FROM questions WHERE assignedToId = ?`).get(userId) as { c: number }).c;
   },
 };
 
-// ---------------------------------------------------------------------------
-// students
-// ---------------------------------------------------------------------------
 export const students = {
   findById(id: string): Student | undefined {
     return db.prepare(`SELECT * FROM students WHERE id = ?`).get(id) as Student | undefined;
@@ -182,20 +165,9 @@ export const students = {
   findByMaxUserId(maxUserId: string): Student | undefined {
     return db.prepare(`SELECT * FROM students WHERE maxUserId = ?`).get(maxUserId) as Student | undefined;
   },
-  /**
-   * MVP name-only identity (see README, "Известные ограничения MVP"): several
-   * people could in theory share a display name, but for the demo/hackathon
-   * scope we treat a case-insensitively-matched name as "the same student" so
-   * that logging out and back in does not orphan their question history.
-   * A real deployment authenticates by login/password or the MAX platform id
-   * instead (see findOrCreateByMaxUserId below), where this collision can't happen.
-   */
+
   findByDisplayName(displayName: string): Student | undefined {
-    // SQLite's built-in lower()/upper() only fold ASCII, not Cyrillic, so a
-    // SQL-side "lower(a) = lower(b)" comparison silently fails to match
-    // "Олеся" against "олеся". Compare case-insensitively in JS instead —
-    // the students table is tiny (one row per person who has ever asked a
-    // question), so scanning it is cheap.
+
     const target = displayName.trim().toLocaleLowerCase("ru-RU");
     const candidates = db.prepare(`SELECT * FROM students WHERE maxUserId IS NULL ORDER BY createdAt ASC`).all() as Student[];
     return candidates.find((s) => s.displayName.trim().toLocaleLowerCase("ru-RU") === target);
@@ -218,9 +190,6 @@ export const students = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// chat sessions (conversation-engine wizard state)
-// ---------------------------------------------------------------------------
 export const chatSessions = {
   findByExternalId(externalChatId: string): ChatSession | undefined {
     return db.prepare(`SELECT * FROM chat_sessions WHERE externalChatId = ?`).get(externalChatId) as ChatSession | undefined;
@@ -253,9 +222,6 @@ export const chatSessions = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// questions
-// ---------------------------------------------------------------------------
 export const questions = {
   findById(id: string): Question | undefined {
     return db.prepare(`SELECT * FROM questions WHERE id = ?`).get(id) as Question | undefined;
@@ -305,9 +271,6 @@ export const questions = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// messages (thread)
-// ---------------------------------------------------------------------------
 export const messages = {
   findByQuestion(questionId: string): Message[] {
     return db.prepare(`SELECT * FROM messages WHERE questionId = ? ORDER BY createdAt ASC`).all(questionId) as Message[];
@@ -332,9 +295,6 @@ export const messages = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// aura events (reputation log)
-// ---------------------------------------------------------------------------
 export const auraEvents = {
   create(data: { userId: string; points: number; reason: string }): AuraEvent {
     const row: AuraEvent = { id: newId(), ...data, createdAt: now() };

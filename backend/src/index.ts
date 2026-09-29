@@ -29,8 +29,6 @@ app.use("/api", expertsRouter);
 app.use("/api", adminRouter);
 app.use("/api", studentRouter);
 
-// MAX webhook is mounted at the root (not under /api) since the platform's
-// webhook URL registration is independent of our own REST namespace.
 app.use(maxWebhookRouter);
 
 app.use(errorHandler);

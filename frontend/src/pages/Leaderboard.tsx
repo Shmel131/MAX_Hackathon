@@ -19,7 +19,6 @@ export function Leaderboard({ identity }: { identity: Identity | null }) {
         setUniversityId(defaultId);
       })
       .catch((e) => setError((e as Error).message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identity?.kind === "staff" ? identity.universityId : null]);
 
   useEffect(() => {
