@@ -121,12 +121,7 @@ export const users = {
   },
   findAnswerersByUniversity(universityId: string): UserProfile[] {
     return db
-      .prepare(`SELECT * FROM user_profiles WHERE universityId = ? AND isAnswerer = 1 ORDER BY aura DESC`)
-      .all(universityId) as UserProfile[];
-  },
-  findOnlineAnswerers(universityId: string): UserProfile[] {
-    return db
-      .prepare(`SELECT * FROM user_profiles WHERE universityId = ? AND isAnswerer = 1 AND isOnline = 1`)
+      .prepare(`SELECT * FROM user_profiles WHERE universityId = ? AND isAnswerer = 1 AND isActive = 1 ORDER BY aura DESC`)
       .all(universityId) as UserProfile[];
   },
   create(data: Partial<UserProfile> & { displayName: string }): UserProfile {
@@ -142,12 +137,12 @@ export const users = {
       isStaff: data.isStaff ? 1 : 0,
       role: data.role ?? "HELPER",
       aura: data.aura ?? 0,
-      isOnline: 0,
+      isActive: data.isActive === 0 ? 0 : 1,
       createdAt: now(),
     };
     db.prepare(
-      `INSERT INTO user_profiles (id, displayName, email, passwordHash, universityId, isAnswerer, isUniversityAdmin, isPlatformAdmin, isStaff, role, aura, isOnline, createdAt)
-       VALUES (@id, @displayName, @email, @passwordHash, @universityId, @isAnswerer, @isUniversityAdmin, @isPlatformAdmin, @isStaff, @role, @aura, @isOnline, @createdAt)`
+      `INSERT INTO user_profiles (id, displayName, email, passwordHash, universityId, isAnswerer, isUniversityAdmin, isPlatformAdmin, isStaff, role, aura, isActive, createdAt)
+       VALUES (@id, @displayName, @email, @passwordHash, @universityId, @isAnswerer, @isUniversityAdmin, @isPlatformAdmin, @isStaff, @role, @aura, @isActive, @createdAt)`
     ).run(row);
     return row;
   },
@@ -158,17 +153,22 @@ export const users = {
     db.prepare(
       `UPDATE user_profiles SET displayName=@displayName, email=@email, passwordHash=@passwordHash, universityId=@universityId,
        isAnswerer=@isAnswerer, isUniversityAdmin=@isUniversityAdmin, isPlatformAdmin=@isPlatformAdmin, isStaff=@isStaff,
-       role=@role, aura=@aura, isOnline=@isOnline WHERE id=@id`
+       role=@role, aura=@aura, isActive=@isActive WHERE id=@id`
     ).run(merged);
     return merged;
   },
-  setOnline(id: string, isOnline: boolean) {
-    db.prepare(`UPDATE user_profiles SET isOnline = ? WHERE id = ?`).run(isOnline ? 1 : 0, id);
+  /** "Delete" a staff member — deactivates the account (blocks login, drops
+   * them from queues/leaderboards) instead of a hard DELETE, so their past
+   * answers/aura history and message thread stay intact for the students who
+   * received them. */
+  deactivate(id: string): UserProfile | undefined {
+    return this.update(id, { isActive: 0 });
   },
+  /** Counts claimed chats ("взял в работу"), not individual messages — an
+   * expert who sends five follow-up messages in one thread still counts as
+   * having answered one question. */
   countAnswers(userId: string): number {
-    return (
-      db.prepare(`SELECT COUNT(*) c FROM messages WHERE senderType = 'EXPERT' AND senderId = ?`).get(userId) as { c: number }
-    ).c;
+    return (db.prepare(`SELECT COUNT(*) c FROM questions WHERE assignedToId = ?`).get(userId) as { c: number }).c;
   },
 };
 

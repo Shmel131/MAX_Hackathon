@@ -39,7 +39,10 @@ export interface UserProfile {
   isStaff: 0 | 1;
   role: Role;
   aura: number;
-  isOnline: 0 | 1;
+  /** Deactivated staff (removed by a university admin) can no longer log in
+   * or show up in queues/leaderboards, but their past messages/aura history
+   * is kept intact rather than deleted. */
+  isActive: 0 | 1;
   createdAt: string;
 }
 

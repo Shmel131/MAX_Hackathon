@@ -39,6 +39,9 @@ authRouter.post(
     if (!user || !user.passwordHash) {
       return res.status(401).json({ error: "invalid credentials" });
     }
+    if (!user.isActive) {
+      return res.status(401).json({ error: "account deactivated" });
+    }
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "invalid credentials" });
 
@@ -65,7 +68,7 @@ authRouter.get(
       const payload = jwt.verify(header.slice(7), config.jwtSecret) as JwtPayload;
       if (payload.kind === "staff" && payload.userId) {
         const user = users.findById(payload.userId);
-        if (!user) return res.status(404).json({ error: "not found" });
+        if (!user || !user.isActive) return res.status(404).json({ error: "not found" });
         return res.json({ kind: "staff", ...toPublicUser(user) });
       }
       if (payload.kind === "student" && payload.studentId) {

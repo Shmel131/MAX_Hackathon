@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { University, LeaderboardEntry } from "../types";
+import { University, LeaderboardEntry, Identity } from "../types";
 import { api } from "../api";
 import { RoleBadge } from "../components/RoleBadge";
 
-/** Public — visible to students as well as staff (see requirement: рейтинг не
- * только у отвечающих, но и у студентов). No login required to view it. */
-export function Leaderboard() {
+export function Leaderboard({ identity }: { identity: Identity | null }) {
   const [universities, setUniversities] = useState<University[]>([]);
   const [universityId, setUniversityId] = useState<string>("");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -16,10 +14,13 @@ export function Leaderboard() {
       .get<University[]>("/api/universities")
       .then((list) => {
         setUniversities(list);
-        if (list.length > 0) setUniversityId(list[0].id);
+        const ownUniversityId = identity?.kind === "staff" ? identity.universityId : null;
+        const defaultId = (ownUniversityId && list.some((u) => u.id === ownUniversityId) ? ownUniversityId : list[0]?.id) ?? "";
+        setUniversityId(defaultId);
       })
       .catch((e) => setError((e as Error).message));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity?.kind === "staff" ? identity.universityId : null]);
 
   useEffect(() => {
     if (!universityId) return;
@@ -50,7 +51,6 @@ export function Leaderboard() {
             <th>Роль</th>
             <th>Аура</th>
             <th>Ответов</th>
-            <th>Онлайн</th>
           </tr>
         </thead>
         <tbody>
@@ -63,7 +63,6 @@ export function Leaderboard() {
               </td>
               <td>{e.aura}</td>
               <td>{e.answersCount}</td>
-              <td>{e.isOnline ? "🟢" : "⚪️"}</td>
             </tr>
           ))}
         </tbody>

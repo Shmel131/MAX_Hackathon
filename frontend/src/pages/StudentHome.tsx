@@ -82,6 +82,9 @@ export function StudentHome({ identity, onLoggedIn }: Props) {
           вход будет по логину/паролю, а вуз задаётся один раз при регистрации.
         </p>
       </form>
+      <p className="muted small">
+        Вы сотрудник вуза (администратор или отвечающий)? <Link to="/login">Войти по e-mail и паролю</Link>.
+      </p>
     </div>
   );
 }

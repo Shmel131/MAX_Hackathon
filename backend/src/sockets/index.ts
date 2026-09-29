@@ -2,7 +2,6 @@ import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { config } from "../config";
-import { users } from "../db/store";
 import { logger } from "../logger";
 import { JwtPayload } from "../types";
 
@@ -33,10 +32,8 @@ export function initSockets(httpServer: HttpServer) {
     if (payload.kind === "staff" && payload.userId) {
       const userId = payload.userId;
       if (payload.universityId) socket.join(`university:${payload.universityId}`);
-      users.setOnline(userId, true);
       logger.info("socket.staff_connected", { userId });
       socket.on("disconnect", () => {
-        users.setOnline(userId, false);
         logger.info("socket.staff_disconnected", { userId });
       });
     } else if (payload.kind === "student" && payload.studentId) {

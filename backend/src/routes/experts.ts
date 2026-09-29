@@ -19,7 +19,6 @@ expertsRouter.get(
         role: e.role,
         roleLabel: ROLE_LABELS_RU[e.role],
         aura: e.aura,
-        isOnline: !!e.isOnline,
         isStaff: !!e.isStaff,
         answersCount: users.countAnswers(e.id),
       }))

@@ -1,11 +1,7 @@
 FROM node:20-alpine AS base
 WORKDIR /app
-# better-sqlite3 builds a small native addon at install time if no prebuilt
-# binary matches this platform — these are the standard toolchain packages
-# for that, kept in the build stage only so the runtime image stays slim.
 RUN apk add --no-cache python3 make g++
 
-# ---- deps & build ----
 FROM base AS build
 COPY package.json ./
 RUN npm install
@@ -13,7 +9,6 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-# ---- runtime ----
 FROM base AS runtime
 ENV NODE_ENV=production
 COPY package.json ./

@@ -92,7 +92,34 @@ adminRouter.patch(
   })
 );
 
-/** Platform admin creates a university admin account for a newly onboarded university. */
+/**
+ * University admin removes a staff member / volunteer answerer. This is a
+ * soft delete (deactivate): the account can no longer log in or claim new
+ * questions, and disappears from the experts list and the public
+ * leaderboard, but any question thread they already answered keeps their
+ * messages and the aura they were awarded — hard-deleting the row would
+ * either orphan those messages or force cascading deletes into student's
+ * own question history, which is worse.
+ */
+adminRouter.delete(
+  "/admin/experts/:id",
+  requireStaff,
+  requireUniversityAdmin,
+  asyncHandler(async (req: AuthedRequest, res) => {
+    const target = users.findById(req.params.id);
+    if (!target) return res.status(404).json({ error: "not found" });
+    if (!req.auth?.isPlatformAdmin && req.auth?.universityId !== target.universityId) {
+      return res.status(403).json({ error: "cannot manage another university" });
+    }
+    if (target.isUniversityAdmin && req.auth?.userId === target.id) {
+      return res.status(400).json({ error: "cannot remove your own admin account" });
+    }
+    users.deactivate(target.id);
+    res.status(204).end();
+  })
+);
+
+/** Platform admin adds an additional admin account to an already-onboarded university (the first admin is created automatically when the university itself is created, see routes/universities.ts). */
 const createUniAdminSchema = z.object({
   displayName: z.string().min(2),
   email: z.string().email(),
@@ -114,6 +141,9 @@ adminRouter.post(
       passwordHash,
       universityId,
       isUniversityAdmin: 1,
+      isAnswerer: 1,
+      isStaff: 1,
+      role: "PRO" as Role,
     });
 
     res.status(201).json({ id: user.id, email: user.email, temporaryPassword: password });

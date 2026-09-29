@@ -80,7 +80,7 @@ export default function App() {
             path="/my-questions"
             element={isStudent ? <MyQuestions /> : <Navigate to="/" replace />}
           />
-          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/leaderboard" element={<Leaderboard identity={identity} />} />
           <Route path="/login" element={<Login onLoggedIn={setIdentity} />} />
           <Route path="/expert" element={isStaff ? <ExpertInbox user={identity} /> : <Navigate to="/login" replace />} />
           <Route path="/admin" element={isStaff ? <AdminDashboard user={identity} /> : <Navigate to="/login" replace />} />

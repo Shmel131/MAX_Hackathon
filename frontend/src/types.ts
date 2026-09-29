@@ -99,7 +99,6 @@ export interface LeaderboardEntry {
   role: Role;
   roleLabel: string;
   aura: number;
-  isOnline: boolean;
   isStaff: boolean;
   answersCount: number;
 }
