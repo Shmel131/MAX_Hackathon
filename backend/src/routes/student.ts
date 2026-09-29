@@ -14,18 +14,6 @@ import { moderateQuestionText } from "../moderation";
 
 export const studentRouter = Router();
 
-/**
- * MVP login: a display name only — no password. A JWT is issued and stored
- * client-side (see README, п.7 — a real product would authenticate a MAX
- * user automatically via their platform id, exactly like max/webhook.ts
- * already does; this endpoint exists only because the *web* app has no such
- * identity to piggy-back on).
- *
- * Logging in with the same name again reuses the existing student record
- * (findOrCreateByDisplayName) instead of creating a brand-new one every
- * time — otherwise every re-login would orphan the student's previous
- * questions, which used to make "Мои вопросы" appear empty after logout.
- */
 studentRouter.post(
   "/student/login",
   asyncHandler(async (req, res) => {
@@ -58,7 +46,6 @@ function questionSummary(q: ReturnType<typeof questionsStore.findById>) {
   };
 }
 
-/** "Мои вопросы" — every question this student has ever asked, newest first. */
 studentRouter.get(
   "/student/questions",
   requireStudent,
@@ -80,7 +67,6 @@ studentRouter.get(
 
 const messageSchema = z.object({ text: z.string().min(1) });
 
-/** Student sends a follow-up message (continue the dialog with the responder). */
 studentRouter.post(
   "/student/questions/:id/messages",
   requireStudent,
@@ -101,7 +87,6 @@ studentRouter.post(
   })
 );
 
-/** Student closes a question they're no longer interested in (hides it from the expert queue too). */
 studentRouter.post(
   "/student/questions/:id/close",
   requireStudent,
@@ -116,7 +101,6 @@ studentRouter.post(
 
 const rateSchema = z.object({ rating: z.enum(["HELPFUL", "NOT_HELPFUL", "RESOLVED"]) });
 
-/** Student rates the answer(s) they've received — this drives aura. */
 studentRouter.post(
   "/student/questions/:id/rate",
   requireStudent,
@@ -129,10 +113,6 @@ studentRouter.post(
     const { rating } = rateSchema.parse(req.body);
     questionsStore.update(question.id, { askerRating: rating });
 
-    // All aura for this question is granted right here, once, at rating
-    // time — never when the expert merely answers. A quick first response
-    // still earns a small bonus, but only once the student confirms it was
-    // actually useful (HELPFUL/RESOLVED), computed from answeredAt.
     const basePoints = rating === "RESOLVED" ? AURA.ANSWER_RESOLVED : rating === "HELPFUL" ? AURA.ANSWER_HELPFUL : AURA.ANSWER_NOT_HELPFUL;
     let points = basePoints;
     if ((rating === "RESOLVED" || rating === "HELPFUL") && question.answeredAt) {
@@ -147,9 +127,6 @@ studentRouter.post(
   })
 );
 
-// ---------------------------------------------------------------------------
-// "Задать вопрос" wizard (университет → категория → текст вопроса)
-// ---------------------------------------------------------------------------
 const wizardIdSchema = z.object({ wizardId: z.string().min(1) });
 
 studentRouter.post(

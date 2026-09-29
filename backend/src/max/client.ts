@@ -3,24 +3,6 @@ import { config } from "../config";
 import { logger } from "../logger";
 import { Button } from "../conversation/engine";
 
-/**
- * Thin wrapper over the MAX Bot API.
- *
- * IMPORTANT (see README "Подключение к MAX"): endpoint paths below follow the
- * documented MAX Bot API conventions (token-authenticated REST calls to send
- * messages and inline keyboards, plus a webhook that receives updates). Because
- * the platform's API can change, verify the exact paths/payload shapes against
- * the current МАХ Bot API docs before pointing this at a real token — the brief
- * itself warns the docs "develop and update" and asks teams not to rely on
- * stale examples. Everything else in this service (routing, reputation,
- * database) is fully independent of this file.
- *
- * When config.mockMax is true (the default for local/demo use), no outbound
- * HTTP call is made — messages are logged and mirrored to the Chat Simulator
- * instead, per the brief's rule that mocked data/integrations must be clearly
- * labeled (Ограничения, п.10).
- */
-
 interface SendMessageParams {
   chatId: string;
   text: string;

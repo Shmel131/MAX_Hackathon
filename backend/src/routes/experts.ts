@@ -5,8 +5,6 @@ import { ROLE_LABELS_RU } from "../types";
 
 export const expertsRouter = Router();
 
-/** Public leaderboard per university — top answerers by aura. Visible to
- * students too (Рейтинг is not gated behind staff login). */
 expertsRouter.get(
   "/universities/:universityId/leaderboard",
   asyncHandler(async (req, res) => {

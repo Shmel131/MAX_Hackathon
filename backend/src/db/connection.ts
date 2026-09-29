@@ -2,9 +2,6 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 
-// Where the SQLite file lives (see README "Где хранятся данные"):
-//  - in Docker: /app/data/askvuz.db, bind-mounted to ./backend/data on the host
-//  - running locally with `npm run dev`: ./backend/data/askvuz.db
 const DB_PATH = process.env.DATABASE_FILE || path.join(__dirname, "..", "..", "data", "askvuz.db");
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -13,10 +10,6 @@ export const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
-// MVP schema — a lightweight hand-rolled equivalent of a relational ORM
-// migration, applied idempotently on boot. Kept deliberately simple (no
-// migration framework) so the whole backend starts from a clean Docker image
-// with a single `npm start`, no native engine downloads required.
 db.exec(`
 CREATE TABLE IF NOT EXISTS universities (
   id TEXT PRIMARY KEY,

@@ -20,13 +20,6 @@ const inviteSchema = z.object({
   startingRole: z.enum(["HELPER", "KNOWER", "PRO"]).default("HELPER"),
 });
 
-/**
- * University admin invites a new answerer (student volunteer, curator, staff
- * member, psychologist, etc.). This is the "not everyone can answer" gate —
- * only people invited here get isAnswerer=true. A demo password is generated
- * and returned once; in production this would instead send an email/MAX
- * invite link.
- */
 adminRouter.post(
   "/admin/universities/:universityId/experts",
   requireStaff,
@@ -75,7 +68,6 @@ adminRouter.get(
 
 const setRoleSchema = z.object({ role: z.enum(["HELPER", "KNOWER", "PRO"]) });
 
-/** Manual role override for verified staff (bypasses the points ladder). */
 adminRouter.patch(
   "/admin/experts/:id/role",
   requireStaff,
@@ -92,15 +84,6 @@ adminRouter.patch(
   })
 );
 
-/**
- * University admin removes a staff member / volunteer answerer. This is a
- * soft delete (deactivate): the account can no longer log in or claim new
- * questions, and disappears from the experts list and the public
- * leaderboard, but any question thread they already answered keeps their
- * messages and the aura they were awarded — hard-deleting the row would
- * either orphan those messages or force cascading deletes into student's
- * own question history, which is worse.
- */
 adminRouter.delete(
   "/admin/experts/:id",
   requireStaff,
@@ -119,7 +102,6 @@ adminRouter.delete(
   })
 );
 
-/** Platform admin adds an additional admin account to an already-onboarded university (the first admin is created automatically when the university itself is created, see routes/universities.ts). */
 const createUniAdminSchema = z.object({
   displayName: z.string().min(2),
   email: z.string().email(),

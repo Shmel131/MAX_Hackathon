@@ -32,7 +32,7 @@ export function Leaderboard({ identity }: { identity: Identity | null }) {
   return (
     <div className="panel">
       <div className="panel__header">
-        <h2>Рейтинг специалистов по ауре</h2>
+        <h2>Рейтинг специалистов</h2>
         <select value={universityId} onChange={(e) => setUniversityId(e.target.value)}>
           {universities.map((u) => (
             <option key={u.id} value={u.id}>
@@ -45,11 +45,11 @@ export function Leaderboard({ identity }: { identity: Identity | null }) {
       <table className="table">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Имя</th>
+            <th>№</th>
+            <th>Специалист</th>
             <th>Роль</th>
-            <th>Аура</th>
-            <th>Ответов</th>
+            <th>Очки репутации</th>
+            <th>Кол-во ответов</th>
           </tr>
         </thead>
         <tbody>

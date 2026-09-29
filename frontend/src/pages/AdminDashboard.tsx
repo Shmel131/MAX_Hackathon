@@ -72,7 +72,7 @@ function PlatformAdminSection() {
       <ul className="list">
         {universities.map((u) => (
           <li key={u.id}>
-            <strong>{u.name}</strong> ({u.city}) — категорий: {u._count?.categories}, пользователей: {u._count?.users}
+            <strong>{u.name}</strong> ({u.city}) — категорий: {u._count?.categories}, отвечающих: {u._count?.users}
           </li>
         ))}
       </ul>
@@ -84,7 +84,7 @@ function PlatformAdminSection() {
       </p>
       <form className="inline-form" onSubmit={createUniversity}>
         <input placeholder="Название вуза" value={name} onChange={(e) => setName(e.target.value)} required />
-        <input placeholder="slug (латиницей)" value={slug} onChange={(e) => setSlug(e.target.value)} required />
+        <input placeholder="Сокращенное название" value={slug} onChange={(e) => setSlug(e.target.value)} required />
         <input placeholder="Город" value={city} onChange={(e) => setCity(e.target.value)} />
         <input placeholder="Имя админа вуза" value={adminName} onChange={(e) => setAdminName(e.target.value)} required />
         <input
@@ -97,7 +97,7 @@ function PlatformAdminSection() {
         <button type="submit">Добавить вуз</button>
       </form>
       {lastAdmin && (
-        <p className="muted small">
+        <p className="error-text small">
           Данные для входа администратора вуза: e-mail <code>{lastAdmin.email}</code>, временный пароль{" "}
           <code>{lastAdmin.temporaryPassword}</code>. Войти можно по ссылке <Link to="/login">/login</Link> (кнопка
           «Войти» в шапке сайта) — там же логинятся все сотрудники вуза. Демо-режим: в реальном продукте пароль
@@ -283,7 +283,7 @@ function UniversityAdminSection({ universityId }: { universityId: string }) {
         <button type="submit">Пригласить</button>
       </form>
       {lastInvite && (
-        <p className="muted small">
+        <p className="error-text small">
           Данные для входа: e-mail <code>{lastInvite.email}</code>, временный пароль{" "}
           <code>{lastInvite.temporaryPassword}</code>. Войти можно по ссылке <Link to="/login">/login</Link> (кнопка
           «Войти» в шапке сайта). Демо-режим: в реальном продукте пароль отправляется приглашением на почту, а не

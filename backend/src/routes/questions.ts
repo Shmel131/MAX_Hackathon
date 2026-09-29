@@ -29,12 +29,6 @@ function enrich(q: ReturnType<typeof questionsStore.findById>) {
   };
 }
 
-/**
- * The expert's worklist: unclaimed questions they're eligible to answer,
- * PLUS every question already assigned to them (so claiming a question
- * moves it into an ongoing thread instead of making it disappear — see
- * README changelog, issue "взять в работу удаляет вопрос").
- */
 questionsRouter.get(
   "/questions/queue",
   requireStaff,
@@ -70,7 +64,6 @@ questionsRouter.get(
   })
 );
 
-/** Expert claims a question so it stops showing up in every other expert's unclaimed list. */
 questionsRouter.post(
   "/questions/:id/claim",
   requireStaff,
@@ -104,7 +97,6 @@ questionsRouter.post(
 
 const messageSchema = z.object({ text: z.string().min(1) });
 
-/** Expert sends a message in the thread — the first one answers the question, further ones continue the dialog. */
 questionsRouter.post(
   "/questions/:id/messages",
   requireStaff,
@@ -135,13 +127,6 @@ questionsRouter.post(
     if (!question.routedAt) patch.routedAt = new Date().toISOString();
     questionsStore.update(question.id, patch);
 
-    // NOTE: no aura is awarded here. Aura is only ever granted once the
-    // student rates the answer (see /student/questions/:id/rate) — an expert
-    // answering does not by itself earn anything, on purpose, so aura always
-    // reflects real, rated help. The fast-response bonus is computed and
-    // added at rating time instead, based on question.answeredAt.
-
-    // Deliver to the student over whichever channel they came from.
     if (question.channel === "MAX") {
       await sendMaxMessage({ chatId: question.externalChatId, text: `${user.displayName}:\n\n${text}` });
     } else {

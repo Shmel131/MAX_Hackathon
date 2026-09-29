@@ -15,8 +15,6 @@ export function initSockets(httpServer: HttpServer) {
   io.on("connection", (socket: Socket) => {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) {
-      // Unauthenticated sockets are allowed to connect but join no rooms —
-      // they simply won't receive any push events.
       return;
     }
 

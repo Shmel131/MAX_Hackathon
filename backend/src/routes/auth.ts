@@ -30,7 +30,6 @@ function toPublicUser(user: ReturnType<typeof users.findById>) {
   };
 }
 
-/** Staff / expert / admin login — real e-mail + password (see README). */
 authRouter.post(
   "/auth/login",
   asyncHandler(async (req, res) => {
@@ -58,7 +57,6 @@ authRouter.post(
   })
 );
 
-/** Works for either a staff token or a student token — used by the frontend on boot. */
 authRouter.get(
   "/auth/whoami",
   asyncHandler(async (req, res) => {

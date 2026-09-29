@@ -61,7 +61,7 @@ export function handleButtonClick(channel: Channel, externalChatId: string, stud
     if (buttons.length === 0) {
       return { text: `В «${university.name}» пока не настроены категории вопросов. Загляните позже.` };
     }
-    return { text: `Вуз: ${university.name}.\n\nО чём хотите спросить?`, buttons };
+    return { text: `Вуз: ${university.name}.\n\nВыберите категорию вопроса:`, buttons };
   }
 
   if (session.step === "SELECT_CATEGORY") {
@@ -129,7 +129,7 @@ export function handleTextMessage(channel: Channel, externalChatId: string, stud
   chatSessions.update(session.id, { step: "DONE" });
 
   return {
-    text: "Спасибо! Вопрос отправлен доступным специалистам вуза. Ответ появится в разделе «Мои вопросы» — там же можно писать специалисту дальше и закрыть вопрос, когда он не нужен.",
+    text: "Спасибо! Вопрос отправлен доступным специалистам вуза. Ответ появится в разделе «Мои вопросы» — там же можно закрыть вопрос или уточнить детали.",
     questionId: question.id,
     done: true,
   };

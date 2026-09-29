@@ -44,7 +44,6 @@ async function upsertExpert(params: {
 }
 
 async function main() {
-  // --- platform admin -------------------------------------------------
   if (!users.findByEmail(ADMIN_EMAIL)) {
     const adminPasswordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
     users.create({
@@ -56,7 +55,6 @@ async function main() {
     });
   }
 
-  // --- universities -----------------------------------------------------
   const uni1 =
     universities.findBySlug("itmo") ??
     universities.create({
@@ -81,7 +79,6 @@ async function main() {
     }
   }
 
-  // --- university admin ---------------------------------------------
   await upsertExpert({
     email: "uniadmin@itmo.demo",
     displayName: "Администратор ИТМО",
@@ -92,7 +89,6 @@ async function main() {
     isUniversityAdmin: true,
   });
 
-  // --- experts across the three roles (ИТМО) ---------------------
   await upsertExpert({ email: "helper@itmo.demo", displayName: "Борис (помощник)", universityId: uni1.id, role: "HELPER", aura: 40 });
   await upsertExpert({ email: "knower@itmo.demo", displayName: "Вера (знаток)", universityId: uni1.id, role: "KNOWER", aura: 220 });
   await upsertExpert({
@@ -114,16 +110,12 @@ async function main() {
     isStaff: true,
   });
 
-  // eslint-disable-next-line no-console
   console.log("Seed complete.");
-  // eslint-disable-next-line no-console
   console.log(`Платформенный админ: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
-  // eslint-disable-next-line no-console
   console.log("Демо-эксперты/админ вуза используют пароль: demo12345 (полный список — в README).");
 }
 
 main().catch((e) => {
-  // eslint-disable-next-line no-console
   console.error(e);
   process.exit(1);
 });

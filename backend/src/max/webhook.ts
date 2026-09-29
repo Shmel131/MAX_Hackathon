@@ -7,16 +7,6 @@ import { logger } from "../logger";
 
 export const maxWebhookRouter = Router();
 
-/**
- * Receives updates from MAX (webhook mode). Shape follows the common
- * {update_type, message | callback} envelope used by MAX/VK-style bot APIs.
- * Register this URL with the organizers' bot once a real token is issued
- * (see README "Подключение к MAX").
- *
- * Unlike the web app, a MAX user never has to "log in with a name" — their
- * platform identity (sender.user_id) is used to find-or-create their Student
- * record automatically, exactly as it would work in a shipped product.
- */
 maxWebhookRouter.post("/webhook/max", async (req, res) => {
   if (config.maxWebhookSecret) {
     const provided = req.header("X-Max-Webhook-Secret");
@@ -25,7 +15,6 @@ maxWebhookRouter.post("/webhook/max", async (req, res) => {
     }
   }
 
-  // Ack immediately — MAX (like most bot platforms) expects a fast 200.
   res.status(200).json({ ok: true });
 
   try {

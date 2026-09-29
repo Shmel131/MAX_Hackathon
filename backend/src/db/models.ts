@@ -26,7 +26,6 @@ export interface Category {
   createdAt: string;
 }
 
-/** Staff/answerer/admin accounts — log in with e-mail + password. */
 export interface UserProfile {
   id: string;
   displayName: string;
@@ -39,19 +38,10 @@ export interface UserProfile {
   isStaff: 0 | 1;
   role: Role;
   aura: number;
-  /** Deactivated staff (removed by a university admin) can no longer log in
-   * or show up in queues/leaderboards, but their past messages/aura history
-   * is kept intact rather than deleted. */
   isActive: 0 | 1;
   createdAt: string;
 }
 
-/**
- * Student accounts. MVP auth: log in with just a display name (see README) —
- * a persistent id/JWT is issued and stored in the browser so the same
- * student keeps their question history across visits. A real MAX chat
- * identifies the student automatically via maxUserId, no name prompt needed.
- */
 export interface Student {
   id: string;
   displayName: string;
@@ -59,7 +49,6 @@ export interface Student {
   createdAt: string;
 }
 
-/** Ephemeral wizard state for the university→category→question selection flow. */
 export interface ChatSession {
   id: string;
   channel: Channel;
@@ -90,7 +79,6 @@ export interface Question {
   closedAt: string | null;
 }
 
-/** One message in a question's thread — either the student or the assigned expert. */
 export interface Message {
   id: string;
   questionId: string;

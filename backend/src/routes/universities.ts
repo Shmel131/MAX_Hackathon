@@ -39,14 +39,6 @@ const createSchema = z.object({
   adminEmail: z.string().email(),
 });
 
-/**
- * Platform admin onboards a new university organization onto the service —
- * this is the "how do universities connect" mechanism described in the
- * idea. Onboarding a university with no one able to log in and run it would
- * be a dead end, so this always creates that university's first admin
- * account in the same call — they log in and invite everyone else (staff,
- * volunteers, categories) themselves from here on.
- */
 universitiesRouter.post(
   "/universities",
   requireStaff,
